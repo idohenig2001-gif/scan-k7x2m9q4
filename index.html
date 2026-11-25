@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>סורק מסמכים</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap">
@@ -8,6 +9,7 @@
 :root{
   --bg:#EDEFF2; --surface:#FFFFFF; --ink:#17212B; --muted:#5B6875; --line:#D5DAE0;
   --accent:#0B7A6B; --accent-ink:#FFFFFF; --danger:#B3261E; --stage:#0E1317; --dim:rgba(8,12,15,.55);
+  --good:#1E7F4A; --warn:#A8650F; --bad:#B3261E;
   --font:'Heebo',system-ui,-apple-system,'Segoe UI',Arial,sans-serif;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
@@ -47,6 +49,8 @@ svg.i{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke
 .thumb img{max-width:100%;max-height:100%;object-fit:contain}
 .num{position:absolute;top:8px;inset-inline-start:8px;background:var(--accent);color:var(--accent-ink);font-weight:800;font-size:15px;
   min-width:30px;height:30px;border-radius:15px;display:flex;align-items:center;justify-content:center;padding:0 8px;font-variant-numeric:tabular-nums}
+.ocrs{min-height:40px;font-size:14px;font-weight:500;color:var(--muted);border-top:1px solid var(--line);padding:0 8px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ocrs:empty{display:none}
 .acts{display:grid;grid-template-columns:repeat(4,1fr)}
 .acts button{height:50px;display:flex;align-items:center;justify-content:center;border-top:1px solid var(--line);color:var(--ink)}
 .acts button+button{border-inline-start:1px solid var(--line)}
@@ -106,13 +110,24 @@ svg.i{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke
 #flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .25s}
 .blocked{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:24px;z-index:3;background:#000}
 .blocked .btn{flex:none;width:100%;max-width:320px;background:#2ECC71;color:#04210F;border-color:#2ECC71}
+/* זיהוי טקסט */
+.meter{height:12px;border-radius:6px;background:var(--line);overflow:hidden;margin-block:16px 8px}
+.meter i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.errbox{background:var(--surface);border:1.5px solid var(--bad);border-radius:14px;padding:14px 16px;margin-block:12px;display:flex;flex-direction:column;gap:8px}
+.errbox code{direction:ltr;unicode-bidi:isolate;user-select:all;word-break:break-all;font-size:14px}
+.confrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-block:10px}
+.chip{color:#fff;font-weight:800;border-radius:16px;padding:4px 12px;font-variant-numeric:tabular-nums}
+.chip.good{background:var(--good)}.chip.warn{background:var(--warn)}.chip.bad{background:var(--bad)}
+#o-text{width:100%;min-height:42vh;border:1.5px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);
+  padding:14px;font:inherit;font-size:17px;line-height:1.55;resize:vertical;unicode-bidi:plaintext;text-align:start}
+#o-result{display:flex;flex-direction:column;gap:12px}
 #toast{position:fixed;inset-inline:16px;bottom:calc(100px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:14px 16px;border-radius:12px;font-weight:700;z-index:60;text-align:center}
 </style>
 
 <div id="app" dir="rtl" lang="he">
 
 <section class="view" id="v-list">
-  <div class="top pad"><h1>סורק מסמכים</h1><span class="sub" id="count"></span></div>
+  <div class="top pad"><h1>סורק מסמכים</h1><span class="sub" id="count"></span><button class="btn sm" id="b-text" style="flex:none" hidden>טקסט</button></div>
   <div class="scroll pad"><div class="grid" id="grid"></div></div>
   <div class="bar pad">
     <button class="btn primary" id="b-cam"><svg class="i" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>סרוק</button>
@@ -128,6 +143,7 @@ svg.i{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke
     <div id="flash"></div>
     <div class="camtop pad">
       <button class="pill" id="k-close" aria-label="סגור מצלמה">✕ סגור</button>
+      <span class="pill" id="k-ocr" role="status" hidden></span>
       <button class="pill" id="k-auto" aria-pressed="true">צילום אוטומטי</button>
     </div>
     <div class="camhint"><span id="k-hint">מפעיל מצלמה…</span></div>
@@ -184,8 +200,9 @@ svg.i{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke
     <div class="field"><label for="docname">שם הקובץ</label><input id="docname" type="text" autocomplete="off" maxlength="80"></div>
     <div class="note" id="x-info"></div>
     <div class="stack">
-      <button class="btn primary" id="x-pdf"><svg class="i" viewBox="0 0 24 24"><path d="M6 3h8l5 5v13H6z"/><path d="M14 3v5h5"/></svg>הורד PDF אחד</button>
+      <button class="btn primary" id="x-pdf"><svg class="i" viewBox="0 0 24 24"><path d="M6 3h8l5 5v13H6z"/><path d="M14 3v5h5"/></svg>הורד PDF (עם טקסט לחיפוש)</button>
       <button class="btn" id="x-img"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.7"/><path d="M21 16l-5-5-8 9"/></svg><span id="x-imgl">הורד תמונות</span></button>
+      <button class="btn" id="x-ocr"><svg class="i" viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M8 9h8M12 9v7"/></svg>הצג את הטקסט שזוהה</button>
       <div class="note" id="x-msg" role="status"></div>
       <div class="row" id="x-ready" hidden>
         <button class="btn primary sm" id="x-save">שמור לטלפון</button>
@@ -193,6 +210,32 @@ svg.i{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke
       </div>
       <div class="note">הקבצים נשמרים בטלפון בלבד. כל העיבוד מתבצע במכשיר ושום תמונה לא נשלחת לשרת.</div>
     </div>
+  </div>
+</section>
+
+<section class="view" id="v-ocr" hidden>
+  <div class="top pad"><h1>זיהוי טקסט</h1><button class="btn sm" id="o-back" style="flex:none">חזרה</button></div>
+  <div class="scroll pad">
+    <div id="o-progress">
+      <div class="meter"><i id="o-bar"></i></div>
+      <div class="note" id="o-stat" role="status">טוען…</div>
+    </div>
+    <div class="errbox" id="o-err" hidden></div>
+    <div id="o-result">
+      <div class="confrow"><span class="chip" id="o-chip" hidden></span><span class="note" id="o-conf"></span></div>
+      <label for="o-text" class="note">הטקסט מזוהה אוטומטית אחרי כל סריקה. אפשר לערוך אותו לפני ההעתקה או ההורדה.</label>
+      <button class="btn sm" id="o-upd" hidden>יש טקסט חדש – עדכן (העריכה שלכם תוחלף)</button>
+      <textarea id="o-text" dir="rtl" spellcheck="false"></textarea>
+      <div class="row"><button class="btn sm" id="o-copy">העתק</button><button class="btn sm" id="o-txt">הורד כ-TXT</button></div>
+      <button class="btn primary" id="o-pdf">PDF עם טקסט שניתן לחיפוש</button>
+      <div class="note" id="o-msg" role="status"></div>
+      <div class="row" id="o-ready" hidden>
+        <button class="btn primary sm" id="o-save">שמור לטלפון</button>
+        <button class="btn sm" id="o-share" hidden>שתף</button>
+      </div>
+    </div>
+    <p class="note"><strong>כתב יד מזוהה פחות טוב ממודפס.</strong> אם הזיהוי של כתב יד לא טוב, הורידו את העמוד כתמונה ושלחו אותו ל-Claude בצ'אט.</p>
+    <p class="note">הזיהוי רץ בטלפון ושום תמונה לא נשלחת לשרת. כשהדף נפתח הוא מוריד מראש את מנוע הזיהוי ואת קובצי העברית והאנגלית (כ-8 מגה-בייט).</p>
   </div>
 </section>
 
@@ -221,25 +264,18 @@ const ICON={
  del:'<svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>'};
 
 /* ---------- טעינת תמונה ---------- */
-async function fileToCanvas(file,max){
-  const url=URL.createObjectURL(file);
+async function blobToCanvas(blob,max){
+  const url=URL.createObjectURL(blob);
   try{
-    const im=new Image();im.src=url;await im.decode();
-    const s=Math.min(1,max/Math.max(im.naturalWidth,im.naturalHeight));
-    const c=mk(Math.round(im.naturalWidth*s),Math.round(im.naturalHeight*s));
-    c.getContext('2d').drawImage(im,0,0,c.width,c.height);return c;
-  }finally{setTimeout(()=>URL.revokeObjectURL(url),2000)}
-}
-const toBlob=(c,q)=>new Promise(r=>c.toBlob(r,'image/jpeg',q));
-async function decodeSource(p,max){
-  const url=URL.createObjectURL(p.blob);
-  try{
-    const im=new Image();im.src=url;await im.decode();
+    const im=new Image();
+    await new Promise((res,rej)=>{im.onload=res;im.onerror=rej;im.src=url});
     const s=Math.min(1,max/Math.max(im.naturalWidth,im.naturalHeight));
     const c=mk(Math.round(im.naturalWidth*s),Math.round(im.naturalHeight*s));
     c.getContext('2d').drawImage(im,0,0,c.width,c.height);return c;
   }finally{URL.revokeObjectURL(url)}
 }
+const fileToCanvas=blobToCanvas,decodeSource=(p,max)=>blobToCanvas(p.blob,max);
+const toBlob=(c,q)=>new Promise(r=>c.toBlob(r,'image/jpeg',q));
 
 /* ---------- זיהוי קצוות הדף ---------- */
 function boxBlur(a,w,h,r,passes){
@@ -371,8 +407,8 @@ async function warpRaw(p,max){
   const q=p.quad.map(([x,y])=>[x*src.width,y*src.height]);
   const raw=warp(src,q,max);free(src);return raw;
 }
-async function renderFinal(p,max){
-  const raw=await warpRaw(p,max);const e=enhance(raw,p.mode,p.thr);free(raw);
+async function renderFinal(p,max,mode){
+  const raw=await warpRaw(p,max);const e=enhance(raw,mode||p.mode,p.thr);free(raw);
   const r=rotate(e,p.rot);if(r!==e)free(e);return r;
 }
 async function makeThumb(p){
@@ -384,7 +420,7 @@ function renderList(){
   const g=$('#grid');g.textContent='';
   const n=S.pages.length;
   $('#count').textContent=n?(n===1?'עמוד אחד':n+' עמודים'):'';
-  $('#b-exp').disabled=!n;
+  $('#b-exp').disabled=!n;$('#b-text').hidden=!n;
   if(!n){
     g.style.display='block';
     g.innerHTML='<div class="empty"><button class="hero-scan" id="hero"><svg class="i" viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"/></svg>סרוק</button><span>כוונו את המצלמה אל הדף. הקצוות יזוהו לבד.</span><button class="link" id="hero-gal">או בחרו תמונה מהגלריה</button></div>';
@@ -402,11 +438,13 @@ function renderList(){
     const bt=(h,l,f,cls)=>{const b=document.createElement('button');b.innerHTML=h;b.setAttribute('aria-label',l);if(cls)b.className=cls;b.onclick=f;a.append(b);return b};
     bt(ICON.prev,'הזז אחורה',()=>move(i,-1)).disabled=i===0;
     bt(ICON.next,'הזז קדימה',()=>move(i,1)).disabled=i===n-1;
-    bt(ICON.rot,'סובב',async()=>{p.rot=(p.rot+1)%4;await makeThumb(p);renderList()});
+    bt(ICON.rot,'סובב',async()=>{p.rot=(p.rot+1)%4;await makeThumb(p);renderList();pump()});
     const d=bt(ICON.del,'מחק עמוד',()=>{
       if(!d.classList.contains('arm')){d.classList.add('arm');d.setAttribute('aria-label','לחצו שוב כדי למחוק');setTimeout(()=>{d.classList.remove('arm')},3000);return}
       S.pages.splice(i,1);renderList()},'del');
-    c.append(t,a);g.append(c);
+    const st=document.createElement('button');st.className='ocrs';st.dataset.id=p.id;st.textContent=pageStatus(p);
+    st.setAttribute('aria-label','הצג את הטקסט שזוהה');st.onclick=()=>openOcr('list');
+    c.append(t,st,a);g.append(c);
   });
 }
 function move(i,d){const j=i+d;if(j<0||j>=S.pages.length)return;[S.pages[i],S.pages[j]]=[S.pages[j],S.pages[i]];renderList()}
@@ -417,18 +455,19 @@ async function addFiles(files){
   try{
     for(const f of files){
       busy(true,files.length>1?'טוען '+(added.length+1)+' מתוך '+files.length+'…':'מזהה קצוות…');await tick();
-      added.push(await addCanvas(await fileToCanvas(f,2400)));
+      added.push(await addCanvas(await fileToCanvas(f,2400),null,files.length>1));
     }
   }catch(e){toast('לא הצלחתי לפתוח את התמונה');console.error(e)}
   busy(false);
-  if(added.length===1)openCrop(added[0]);else{show('list');renderList()}
+  if(added.length===1&&files.length===1)openCrop(added[0]);else{added.forEach(p=>p.ready=true);show('list');renderList();pump()}
 }
-async function addCanvas(c,q){
+// ready=false: העמוד עוד בעריכה (פינות/מצב), והזיהוי יתחיל רק כשיסתיים
+async function addCanvas(c,q,ready=false){
   if(Math.max(c.width,c.height)>2400){const s=2400/Math.max(c.width,c.height),d=mk(Math.round(c.width*s),Math.round(c.height*s));
     d.getContext('2d').drawImage(c,0,0,d.width,d.height);free(c);c=d}
   q=detectQuad(c)||q||defaultQuad();
   const blob=await toBlob(c,.92);free(c);
-  const p={id:++uid,blob,quad:q,mode:'color',thr:200,rot:0,thumb:''};
+  const p={id:++uid,blob,quad:q,mode:'color',thr:200,rot:0,thumb:'',ready};
   await makeThumb(p);S.pages.push(p);return p;
 }
 $('#b-cam').onclick=openCam;
@@ -443,6 +482,7 @@ const setRing=p=>$('#k-ring').setAttribute('stroke-dashoffset',226.2*(1-p));
 const qdist=(a,b)=>Math.max(...a.map((p,i)=>Math.hypot(p[0]-b[i][0],p[1]-b[i][1])));
 const noLive=()=>K.blocked||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia;
 async function openCam(){
+  ensureEngine();
   if(noLive()){$('#f-cam').click();return}
   show('cam');const n=S.pages.length,d=$('#k-done');d.hidden=!n;d.className='camside done';d.textContent='סיום ('+n+')';
   $('#k-blocked').hidden=true;$('#k-shot').hidden=false;hint('מפעיל מצלמה…');
@@ -514,7 +554,7 @@ async function capture(){
   const c=mk(vid.videoWidth,vid.videoHeight);c.getContext('2d').drawImage(vid,0,0);
   const q=K.target;K.lastCap=q;stopCam();
   busy(true,'מזהה קצוות…');await tick();
-  try{const p=await addCanvas(c,q);busy(false);openCrop(p)}
+  try{const p=await addCanvas(c,q,false);busy(false);openCrop(p)}
   catch(e){busy(false);toast('הצילום נכשל');show('list');renderList()}
 }
 const camToList=()=>{stopCam();show('list');renderList()};
@@ -570,7 +610,7 @@ cc.addEventListener('pointerup',endDrag);cc.addEventListener('pointercancel',end
 addEventListener('resize',()=>{if(S.view==='crop')layoutCrop()});
 $('#c-auto').onclick=()=>{const q=detectQuad(C.img);if(q){C.q=q;drawCrop()}else{toast('לא זוהה דף, גררו את הפינות ידנית')}};
 $('#c-full').onclick=()=>{C.q=[[0,0],[1,0],[1,1],[0,1]];drawCrop()};
-$('#c-cancel').onclick=()=>{show('list');renderList()};
+$('#c-cancel').onclick=()=>{C.p.ready=true;show('list');renderList();pump()};
 $('#c-done').onclick=()=>{C.p.quad=C.q.map(a=>[...a]);openEdit(C.p)};
 
 /* ---------- מסך שיפור ---------- */
@@ -592,17 +632,20 @@ $('#thr').oninput=e=>{E.p.thr=+e.target.value;renderEdit()};
 $('#e-left').onclick=()=>{E.p.rot=(E.p.rot+3)%4;renderEdit()};
 $('#e-right').onclick=()=>{E.p.rot=(E.p.rot+1)%4;renderEdit()};
 $('#e-corners').onclick=()=>openCrop(E.p);
-async function finishEdit(){busy(true,'שומר…');await tick();await makeThumb(E.p);busy(false);show('list');renderList()}
+async function finishEdit(){busy(true,'שומר…');await tick();await makeThumb(E.p);E.p.ready=true;busy(false);show('list');renderList();pump()}
 $('#e-done').onclick=async()=>{await finishEdit();openExport()};
 $('#e-more').onclick=async()=>{if(noLive()){$('#f-cam').click();await finishEdit()}else{await finishEdit();openCam()}};
 
 /* ---------- ייצוא ---------- */
 const safeName=()=>($('#docname').value.trim().replace(/[\\/:*?"<>|]+/g,' ').replace(/\s+/g,' ')||'סריקה');
 $('#b-exp').onclick=()=>openExport();
-function openExport(){
-  if(!S.pages.length){show('list');renderList();return}
+function openExportName(){
   const d=new Date(),p2=n=>String(n).padStart(2,'0');
   if(!$('#docname').value)$('#docname').value='סריקה '+d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());
+}
+function openExport(){
+  if(!S.pages.length){show('list');renderList();return}
+  openExportName();
   const n=S.pages.length;
   $('#x-info').textContent=(n===1?'עמוד אחד':n+' עמודים')+' בסריקה.';
   $('#x-imgl').textContent=n===1?'הורד כתמונה (JPG)':'הורד תמונות (ZIP)';
@@ -611,35 +654,64 @@ function openExport(){
 }
 $('#x-back').onclick=()=>{show('list');renderList()};
 let ready=null;
-$('#x-save').onclick=()=>{
+function saveLocal(){
   const a=document.createElement('a');a.href=URL.createObjectURL(ready.blob);a.download=ready.name;
   document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),60000);
-};
-$('#x-share').onclick=async()=>{try{await navigator.share({files:[new File([ready.blob],ready.name,{type:ready.blob.type})]})}catch(e){}};
-async function save(name,blob){
-  if(!dl){ // מחוץ ל-Artifact: שמירה ישירה או שיתוף של האייפון
-    ready={name,blob};$('#x-ready').hidden=false;
-    let can=false;try{can=!!(navigator.canShare&&navigator.canShare({files:[new File([blob],name,{type:blob.type})]}))}catch(e){}
-    $('#x-share').hidden=!can;$('#x-msg').innerHTML='<span class="ok">הקובץ מוכן.</span> בחרו איך לשמור אותו:';return;
-  }
-  try{await dl.save({filename:name,data:blob});$('#x-msg').innerHTML='<span class="ok">נשמר: '+name.replace(/[<>&]/g,'')+'</span>'}
-  catch(e){$('#x-msg').textContent=e&&e.code==='declined'?'השמירה בוטלה.':'השמירה נכשלה'+(e&&e.code?' ('+e.code+')':'')+'.'}
 }
-$('#x-pdf').onclick=async()=>{
-  const name=safeName();let pdf=null;
+async function shareLocal(){try{await navigator.share({files:[new File([ready.blob],ready.name,{type:ready.blob.type})]})}catch(e){}}
+$('#x-save').onclick=$('#o-save').onclick=saveLocal;
+$('#x-share').onclick=$('#o-share').onclick=shareLocal;
+async function save(name,blob,pre='x'){
+  const msg=$('#'+pre+'-msg');
+  if(!dl){ // מחוץ ל-Artifact: שמירה ישירה או שיתוף של האייפון
+    ready={name,blob};$('#'+pre+'-ready').hidden=false;
+    let can=false;try{can=!!(navigator.canShare&&navigator.canShare({files:[new File([blob],name,{type:blob.type})]}))}catch(e){}
+    $('#'+pre+'-share').hidden=!can;msg.innerHTML='<span class="ok">הקובץ מוכן.</span> בחרו איך לשמור אותו:';return;
+  }
+  try{await dl.save({filename:name,data:blob});msg.innerHTML='<span class="ok">נשמר: '+name.replace(/[<>&]/g,'')+'</span>'}
+  catch(e){msg.textContent=e&&e.code==='declined'?'השמירה בוטלה.':'השמירה נכשלה'+(e&&e.code?' ('+e.code+')':'')+'.'}
+}
+/* PDF; עם withText נוספת שכבת טקסט בלתי נראית מתוצאות הזיהוי */
+async function buildPdf(withText){
+  let pdf=null;const font=withText?await hebFont():null;
+  for(let i=0;i<S.pages.length;i++){
+    const p=S.pages[i];
+    busy(true,'מכין עמוד '+(i+1)+' מתוך '+S.pages.length+'…');await tick();
+    const c=await renderFinal(p,2000);
+    const land=c.width>c.height,w=land?297:210,h=w*c.height/c.width,o=land?'l':'p',k=w/c.width;
+    const url=c.toDataURL('image/jpeg',.85);free(c);
+    if(!pdf){pdf=new jspdf.jsPDF({unit:'mm',format:[w,h],orientation:o,compress:true});
+      if(font){pdf.addFileToVFS('Heebo.ttf',font);pdf.addFont('Heebo.ttf','Heebo','normal');pdf.setFont('Heebo')}}
+    else pdf.addPage([w,h],o);
+    pdf.addImage(url,'JPEG',0,0,w,h,undefined,'FAST');
+    if(font&&p.ocr&&p.ocr.key===pageKey(p))
+      for(const l of p.ocr.lines){
+        const lh=Math.max(1,(l.b.y1-l.b.y0)*k);pdf.setFontSize(lh/0.3528);
+        for(const r of runs(l.words)){
+          const tw=pdf.getTextWidth(r.v);if(!tw)continue;
+          pdf.text(r.v,r.x0*k,l.b.y1*k-lh*.12,{renderingMode:'invisible',horizontalScale:(r.x1-r.x0)*k/tw});
+        }
+      }
+  }
+  busy(true,'יוצר PDF…');await tick();
+  const blob=pdf.output('blob');busy(false);return blob;
+}
+/* PDF עם שכבת טקסט כברירת מחדל: מחכה לזיהוי שעוד רץ, ובלי שכבה אם המנוע או הגופן לא זמינים */
+async function exportPdf(pre){
+  const msg=$('#'+pre+'-msg');let note='';
   try{
-    for(let i=0;i<S.pages.length;i++){
-      busy(true,'מכין עמוד '+(i+1)+' מתוך '+S.pages.length+'…');await tick();
-      const c=await renderFinal(S.pages[i],2000);
-      const land=c.width>c.height,w=land?297:210,h=w*c.height/c.width,o=land?'l':'p';
-      const url=c.toDataURL('image/jpeg',.85);free(c);
-      if(!pdf)pdf=new jspdf.jsPDF({unit:'mm',format:[w,h],orientation:o,compress:true});else pdf.addPage([w,h],o);
-      pdf.addImage(url,'JPEG',0,0,w,h,undefined,'FAST');
+    while(O.state==='ready'&&pendingPages().length){
+      const n=S.pages.length;busy(true,'מסיים לזהות טקסט… ('+(n-pendingPages().length)+'/'+n+')');
+      await new Promise(r=>setTimeout(r,400));
     }
-    busy(true,'יוצר PDF…');await tick();
-    const blob=pdf.output('blob');busy(false);await save(name+'.pdf',blob);
-  }catch(e){busy(false);$('#x-msg').textContent='יצירת ה-PDF נכשלה.';console.error(e)}
-};
+    let b;
+    try{b=await buildPdf(S.pages.some(ocrDone))}
+    catch(e){if(e.message!=='font')throw e;b=await buildPdf(false);note=' (בלי שכבת טקסט: הגופן העברי לא נטען)'}
+    if(!note&&!S.pages.every(ocrDone))note=S.pages.some(ocrDone)?' (חלק מהעמודים בלי שכבת טקסט: הזיהוי שלהם לא הושלם)':' (בלי שכבת טקסט: הזיהוי לא זמין כאן)';
+    await save(safeName()+'.pdf',b,pre);if(note)msg.append(note);
+  }catch(e){busy(false);msg.textContent='יצירת ה-PDF נכשלה.';console.error(e)}
+}
+$('#x-pdf').onclick=()=>exportPdf('x');
 $('#x-img').onclick=async()=>{
   const name=safeName(),n=S.pages.length;
   try{
@@ -655,7 +727,127 @@ $('#x-img').onclick=async()=>{
   }catch(e){busy(false);$('#x-msg').textContent='יצירת התמונות נכשלה.';console.error(e)}
 };
 
+/* ---------- זיהוי טקסט (OCR): Tesseract.js, הכול בטלפון ---------- */
+const TESS='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/',TCORE='https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1';
+const FONT_URL='https://cdn.jsdelivr.net/npm/@expo-google-fonts/heebo@0.2.3/Heebo_400Regular.ttf';
+const PUBLIC_URL='https://idohenig2001-gif.github.io/scan-k7x2m9q4/';
+const O={worker:null,state:'idle',cur:null,loadMsg:'',dirty:false,lastTxt:'',back:'list'};
+const pageKey=p=>JSON.stringify([p.id,p.quad,p.rot]);
+const HEB=/[֐-׿]/,MIR={'(':')',')':'(','[':']',']':'[','{':'}','}':'{','<':'>','>':'<'};
+// מילה עברית נכתבת ל-PDF בסדר חזותי (כמו ש-Word שומר עברית), כדי שהקוראים יחלצו אותה נכון
+const visual=t=>HEB.test(t)?Array.from(t).reverse().map(ch=>MIR[ch]||ch).join(''):t;
+// שורה מתחלקת לרצפים: מילים עבריות רצופות (סדר חזותי), ומספרים או אנגלית בנפרד, כל רצף במקום שלו
+function runs(words){
+  const out=[];
+  for(const w of words){const t=w.t.trim();if(!t)continue;const h=HEB.test(t),last=out[out.length-1];
+    if(last&&last.h===h){last.ws.push(t);last.x0=Math.min(last.x0,w.b.x0);last.x1=Math.max(last.x1,w.b.x1)}
+    else out.push({h,ws:[t],x0:w.b.x0,x1:w.b.x1})}
+  return out.map(r=>({...r,v:r.h?r.ws.map(visual).reverse().join(' '):r.ws.join(' ')}));
+}
+let fontB64=null;
+async function hebFont(){
+  if(fontB64)return fontB64;
+  let b;try{const r=await fetch(FONT_URL);if(!r.ok)throw 0;b=new Uint8Array(await r.arrayBuffer())}catch(e){throw new Error('font')}
+  let s='';
+  for(let i=0;i<b.length;i+=8192)s+=String.fromCharCode.apply(null,b.subarray(i,i+8192));
+  return fontB64=btoa(s);
+}
+const loadScript=src=>new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('script'));document.head.append(s)});
+const timeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]);
+/* המנוע נטען מראש כשהדף נפתח; כל עמוד מזוהה ברקע (ב-Web Worker) מיד כשסיים עיבוד */
+function onLog(m){
+  if(m.status==='recognizing text'&&O.cur){O.cur.ocrProg=m.progress;ocrUI()}
+  else if(O.state==='loading'&&/loading|initializ/.test(m.status||'')){O.loadMsg=m.status.includes('traineddata')?'טוען עברית ואנגלית':'טוען מנוע זיהוי';ocrUI()}
+}
+async function getWorker(){
+  if(!window.Tesseract)await loadScript(TESS+'tesseract.min.js');
+  return Tesseract.createWorker(['heb','eng'],1,{workerPath:TESS+'worker.min.js',corePath:TCORE,logger:onLog});
+}
+function ensureEngine(){
+  if(O.state!=='idle')return;O.state='loading';O.loadMsg='טוען מנוע זיהוי';ocrUI();
+  timeout(getWorker(),120000).then(w=>{O.worker=w;O.state='ready';pump()},e=>{O.state='failed';console.error(e);ocrUI()});
+}
+const ocrDone=p=>!!(p.ocr&&p.ocr.key===pageKey(p));
+const pendingPages=()=>S.pages.filter(p=>p.ready!==false&&!ocrDone(p)&&p.ocrErr!==pageKey(p));
+async function pump(){
+  ocrUI();
+  if(O.state!=='ready'||O.cur)return;
+  const p=pendingPages()[0];if(!p)return;
+  O.cur=p;p.ocrProg=0;const key=pageKey(p);ocrUI();
+  try{
+    const c=await renderFinal(p,2000,'gray');
+    const {data}=await O.worker.recognize(c);free(c);
+    const clean=s=>(s||'').replace(/[‎‏‪-‮]/g,''); // Tesseract מוסיף סימני כיווון בלתי נראים
+    p.ocr={key,text:clean(data.text).replace(/[ \t]+\n/g,'\n').trim(),conf:data.confidence,
+      lines:(data.lines||[]).map(l=>({b:l.bbox,words:l.words.map(x=>({t:clean(x.text),b:x.bbox}))}))};
+  }catch(e){p.ocrErr=key;console.error(e)}
+  O.cur=null;setTimeout(pump,0);
+}
+/* מצב הזיהוי בכרטיס של כל עמוד, במצלמה ובמסך הטקסט */
+function pageStatus(p){
+  if(p.ready===false)return '';
+  if(ocrDone(p))return 'טקסט ✓ '+Math.round(p.ocr.conf)+'%';
+  if(O.state==='failed'||p.ocrErr===pageKey(p))return 'טקסט: לא זמין כאן';
+  if(O.cur===p)return 'מזהה טקסט '+Math.round((p.ocrProg||0)*100)+'%';
+  return O.state==='loading'?O.loadMsg+'…':'טקסט: בתור';
+}
+let uiQueued=false;
+function ocrUI(){if(uiQueued)return;uiQueued=true;requestAnimationFrame(()=>{uiQueued=false;drawOcrUI()});setTimeout(()=>{if(uiQueued){uiQueued=false;drawOcrUI()}},300)}
+function drawOcrUI(){
+  document.querySelectorAll('.ocrs').forEach(b=>{const p=S.pages.find(x=>x.id==b.dataset.id);if(p)b.textContent=pageStatus(p)});
+  const n=S.pages.filter(p=>p.ready!==false).length,left=pendingPages().length,k=$('#k-ocr');
+  k.hidden=!n||O.state==='failed'||!left;k.textContent='טקסט '+(n-left)+'/'+n;
+  if(S.view==='ocr')refreshOcrView();
+}
+function composeText(){
+  const P=S.pages,n=P.length;
+  return P.map((p,i)=>(n>1?'— עמוד '+(i+1)+' —\n':'')+(ocrDone(p)?p.ocr.text||'(לא זוהה טקסט)':'('+(pageStatus(p)||'העמוד עדיין בעריכה')+')')).join('\n\n');
+}
+function refreshOcrView(){
+  const P=S.pages,done=P.filter(ocrDone),left=pendingPages().length,ta=$('#o-text');
+  const failed=O.state==='failed';
+  $('#o-err').hidden=!failed;
+  if(failed&&!$('#o-err').firstChild){
+    const box=$('#o-err');
+    box.innerHTML='<strong>זיהוי הטקסט לא זמין כאן.</strong><span>הזיהוי מוריד את המנוע מהאינטרנט, והטעינה נחסמה בתצוגה הזו או שאין חיבור. בכתובת הציבורית של הסורק הוא עובד:</span><code></code>';
+    box.querySelector('code').textContent=PUBLIC_URL;
+  }
+  $('#o-progress').hidden=failed||!left;
+  if(left){const cur=O.cur,frac=(done.length+(cur?cur.ocrProg||0:0))/P.length;
+    $('#o-bar').style.width=Math.round(frac*100)+'%';
+    $('#o-stat').textContent=O.state==='loading'?O.loadMsg+'… הטקסט יופיע כאן כשהזיהוי יסתיים.':'מזהה טקסט: '+done.length+' מתוך '+P.length+' עמודים. אפשר להמשיך לסרוק בינתיים.'}
+  const txt=composeText();
+  if(!O.dirty)ta.value=txt;
+  $('#o-upd').hidden=!(O.dirty&&txt!==O.lastTxt);
+  O.lastTxt=O.dirty?O.lastTxt:txt;
+  const chip=$('#o-chip');
+  if(done.length){
+    const avg=Math.round(done.reduce((s,p)=>s+(p.ocr.conf||0),0)/done.length);
+    chip.hidden=false;chip.textContent='ביטחון '+avg+'%';chip.className='chip '+(avg>=85?'good':avg>=65?'warn':'bad');
+    let t=avg>=85?'זיהוי טוב. כדאי בכל זאת לעבור על הטקסט.':avg>=65?'זיהוי בינוני. יש כנראה טעויות, בדקו את הטקסט.':'זיהוי חלש. יש הרבה טעויות; בכתב יד זה צפוי.';
+    if(P.length>1)t+=' לפי עמוד: '+P.map((p,i)=>(i+1)+': '+(ocrDone(p)?Math.round(p.ocr.conf)+'%':'—')).join(' · ');
+    $('#o-conf').textContent=t;
+  }else{chip.hidden=true;$('#o-conf').textContent=''}
+}
+function openOcr(from){
+  if(!S.pages.length)return;O.back=from;O.dirty=false;
+  $('#o-msg').textContent='';$('#o-ready').hidden=true;show('ocr');ensureEngine();refreshOcrView();
+}
+$('#x-ocr').onclick=()=>openOcr('export');
+$('#b-text').onclick=()=>openOcr('list');
+$('#o-back').onclick=()=>{if(O.back==='export')openExport();else{show('list');renderList()}};
+$('#o-text').addEventListener('input',()=>{if(!O.dirty){O.dirty=true;O.lastTxt=composeText()}});
+$('#o-upd').onclick=()=>{O.dirty=false;refreshOcrView()};
+$('#o-copy').onclick=()=>{
+  const ta=$('#o-text');
+  const fb=()=>{ta.focus();ta.select();try{document.execCommand('copy');toast('הטקסט הועתק')}catch(e){toast('סמנו את הטקסט והעתיקו ידנית')}};
+  try{navigator.clipboard.writeText(ta.value).then(()=>toast('הטקסט הועתק'),fb)}catch(e){fb()}
+};
+$('#o-txt').onclick=()=>save(safeName()+'.txt',new Blob(['﻿'+$('#o-text').value],{type:'text/plain;charset=utf-8'}),'o');
+$('#o-pdf').onclick=()=>{if(!$('#docname').value)openExportName();exportPdf('o')};
+
 /* ---------- התחלה ---------- */
 renderList();
+setTimeout(ensureEngine,800); // טעינה מוקדמת של המנוע והשפות, כדי שהעמוד הראשון לא יחכה להורדה
 (async()=>{try{dl=await claude.use('downloads')}catch(e){dl=null}})();
 </script>
