@@ -1,4 +1,5 @@
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>סורק מסמכים</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap">
@@ -19,6 +20,8 @@
   --bg:#11161B; --surface:#1B222A; --ink:#E8EDF1; --muted:#9AA7B3; --line:#2D3640;
   --accent:#3CCBB5; --accent-ink:#06201B; --danger:#FF8A80; --stage:#080B0E; color-scheme:dark}
 html,body{height:100%;margin:0}
+/* safe-area של האייפון גם מחוץ ל-Artifact (ב-Artifact זה אותו ערך כמו שהמעטפת נותנת) */
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 [hidden]{display:none!important}
 body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:17px;line-height:1.4;
   -webkit-tap-highlight-color:transparent;overscroll-behavior:none}
@@ -99,11 +102,11 @@ svg.i{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke
 .pill[aria-pressed="true"]{background:#2ECC71;color:#04210F}
 .camhint{position:absolute;bottom:14px;inset-inline:0;display:flex;justify-content:center;z-index:2;pointer-events:none}
 .camhint span{background:rgba(0,0,0,.6);padding:8px 16px;border-radius:20px;font-weight:700;font-size:16px}
-.cambar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding-block:16px 20px;background:#000}
+.cambar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding-block:14px 18px;background:#000}
 .cambar>:first-child{justify-self:start}.cambar>:last-child{justify-self:end}
-.shutter{width:80px;height:80px;border-radius:50%;position:relative;display:flex;align-items:center;justify-content:center}
-.shutter svg{position:absolute;inset:0;width:80px;height:80px;transform:rotate(-90deg)}
-.shutter i{width:62px;height:62px;border-radius:50%;background:#fff;display:block}
+.shutter{width:96px;height:96px;border-radius:50%;position:relative;display:flex;align-items:center;justify-content:center}
+.shutter svg{position:absolute;inset:0;width:96px;height:96px;transform:rotate(-90deg)}
+.shutter i{width:74px;height:74px;border-radius:50%;background:#fff;display:block}
 .shutter:active i{transform:scale(.92)}
 .camside{min-width:76px;min-height:56px;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:14px}
 .camside.done{background:#2ECC71;color:#04210F;padding:0 14px}
@@ -121,6 +124,16 @@ svg.i{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke
 #o-text{width:100%;min-height:42vh;border:1.5px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);
   padding:14px;font:inherit;font-size:17px;line-height:1.55;resize:vertical;unicode-bidi:plaintext;text-align:start}
 #o-result{display:flex;flex-direction:column;gap:12px}
+.ocrpanel{background:var(--surface);border-top:1px solid var(--line);padding-block:10px;display:flex;flex-direction:column;gap:6px}
+.ocrpanel .oh{display:flex;align-items:center;gap:8px;min-height:32px}
+.ocrpanel .ot{flex:1;min-width:0;font-weight:800;font-size:18px;font-variant-numeric:tabular-nums}
+.ocrpanel .ot.bad{color:var(--bad)}
+.ocrpanel .link{min-height:40px;padding:0 6px;flex:none}
+.ocrpanel .meter{margin:0;height:10px}
+.ocrpanel .od:empty{display:none}
+.otx{max-height:24vh;overflow-y:auto;white-space:pre-wrap;unicode-bidi:plaintext;text-align:start;font-size:16px;line-height:1.5;
+  background:var(--bg);border-radius:10px;padding:8px 12px;-webkit-overflow-scrolling:touch;user-select:text}
+.otx.stale{opacity:.55}
 #toast{position:fixed;inset-inline:16px;bottom:calc(100px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:14px 16px;border-radius:12px;font-weight:700;z-index:60;text-align:center}
 </style>
 
@@ -156,7 +169,7 @@ svg.i{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke
   </div>
   <div class="cambar pad">
     <button class="camside" id="k-gal" aria-label="בחר מהגלריה"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.7"/><path d="M21 16l-5-5-8 9"/></svg></button>
-    <button class="shutter" id="k-shot" aria-label="צלם"><svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="36" fill="none" stroke="#fff" stroke-width="5"/><circle id="k-ring" cx="40" cy="40" r="36" fill="none" stroke="#2ECC71" stroke-width="5" stroke-dasharray="226.2" stroke-dashoffset="226.2"/></svg><i></i></button>
+    <button class="shutter" id="k-shot" aria-label="צלם"><svg viewBox="0 0 96 96"><circle cx="48" cy="48" r="44" fill="none" stroke="#fff" stroke-width="5"/><circle id="k-ring" cx="48" cy="48" r="44" fill="none" stroke="#2ECC71" stroke-width="5" stroke-dasharray="276.5" stroke-dashoffset="276.5"/></svg><i></i></button>
     <button class="camside" id="k-done" hidden></button>
   </div>
 </section>
@@ -164,6 +177,7 @@ svg.i{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke
 <section class="view" id="v-crop" hidden>
   <div class="top pad"><h1>חיתוך הדף</h1><button class="btn sm" id="c-cancel" style="flex:none">ביטול</button></div>
   <div class="stage" id="stage"><canvas id="cropc"></canvas></div>
+  <div class="ocrpanel pad" id="c-ocr" role="status" hidden></div>
   <div class="ctl pad">
     <div class="hint" style="padding:0">גררו את ארבע הפינות עד שהמסגרת מתאימה לדף</div>
     <div class="row">
@@ -177,6 +191,7 @@ svg.i{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke
 <section class="view" id="v-edit" hidden>
   <div class="top pad"><h1>שיפור הדף</h1><button class="btn sm" id="e-corners" style="flex:none">פינות</button></div>
   <div class="stage pad" id="estage"><canvas id="prev"></canvas></div>
+  <div class="ocrpanel pad" id="e-ocr" role="status" hidden></div>
   <div class="ctl pad">
     <div class="seg" id="modes">
       <button data-m="orig">מקורי</button><button data-m="color">צבעוני</button>
@@ -455,19 +470,19 @@ async function addFiles(files){
   try{
     for(const f of files){
       busy(true,files.length>1?'טוען '+(added.length+1)+' מתוך '+files.length+'…':'מזהה קצוות…');await tick();
-      added.push(await addCanvas(await fileToCanvas(f,2400),null,files.length>1));
+      added.push(await addCanvas(await fileToCanvas(f,2400)));
     }
   }catch(e){toast('לא הצלחתי לפתוח את התמונה');console.error(e)}
   busy(false);
-  if(added.length===1&&files.length===1)openCrop(added[0]);else{added.forEach(p=>p.ready=true);show('list');renderList();pump()}
+  pump(); // הזיהוי מתחיל מיד על הפינות שזוהו; שינוי פינות אחר כך מריץ אותו שוב ברקע
+  if(added.length===1&&files.length===1)openCrop(added[0]);else{show('list');renderList()}
 }
-// ready=false: העמוד עוד בעריכה (פינות/מצב), והזיהוי יתחיל רק כשיסתיים
-async function addCanvas(c,q,ready=false){
+async function addCanvas(c,q){
   if(Math.max(c.width,c.height)>2400){const s=2400/Math.max(c.width,c.height),d=mk(Math.round(c.width*s),Math.round(c.height*s));
     d.getContext('2d').drawImage(c,0,0,d.width,d.height);free(c);c=d}
   q=detectQuad(c)||q||defaultQuad();
   const blob=await toBlob(c,.92);free(c);
-  const p={id:++uid,blob,quad:q,mode:'color',thr:200,rot:0,thumb:'',ready};
+  const p={id:++uid,blob,quad:q,mode:'color',thr:200,rot:0,thumb:''};
   await makeThumb(p);S.pages.push(p);return p;
 }
 $('#b-cam').onclick=openCam;
@@ -478,7 +493,7 @@ for(const id of ['#f-cam','#f-gal'])$(id).addEventListener('change',e=>{const f=
 const K={stream:null,timer:0,raf:0,target:null,shown:null,miss:0,stableMs:0,lastT:0,auto:true,lastCap:null,busy:false,blocked:false};
 const GREEN='#2ECC71',HOLD=1100,vid=$('#vid'),ovl=$('#ovl'),det=document.createElement('canvas');
 const hint=t=>{$('#k-hint').textContent=t};
-const setRing=p=>$('#k-ring').setAttribute('stroke-dashoffset',226.2*(1-p));
+const setRing=p=>$('#k-ring').setAttribute('stroke-dashoffset',276.5*(1-p));
 const qdist=(a,b)=>Math.max(...a.map((p,i)=>Math.hypot(p[0]-b[i][0],p[1]-b[i][1])));
 const noLive=()=>K.blocked||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia;
 async function openCam(){
@@ -554,7 +569,7 @@ async function capture(){
   const c=mk(vid.videoWidth,vid.videoHeight);c.getContext('2d').drawImage(vid,0,0);
   const q=K.target;K.lastCap=q;stopCam();
   busy(true,'מזהה קצוות…');await tick();
-  try{const p=await addCanvas(c,q,false);busy(false);openCrop(p)}
+  try{const p=await addCanvas(c,q);busy(false);openCrop(p);pump()}
   catch(e){busy(false);toast('הצילום נכשל');show('list');renderList()}
 }
 const camToList=()=>{stopCam();show('list');renderList()};
@@ -572,7 +587,7 @@ const C={p:null,img:null,q:null,drag:-1,off:[0,0],L:null};
 const cc=$('#cropc');
 async function openCrop(p){
   C.p=p;C.q=p.quad.map(a=>[...a]);show('crop');busy(true,'טוען…');await tick();
-  free(C.img);C.img=await decodeSource(p,1400);busy(false);layoutCrop();
+  ocrUI();free(C.img);C.img=await decodeSource(p,1400);busy(false);layoutCrop();
 }
 function layoutCrop(){
   if(!C.img)return;
@@ -608,15 +623,16 @@ cc.addEventListener('pointermove',e=>{
 const endDrag=()=>{if(C.drag>=0){C.drag=-1;drawCrop()}};
 cc.addEventListener('pointerup',endDrag);cc.addEventListener('pointercancel',endDrag);
 addEventListener('resize',()=>{if(S.view==='crop')layoutCrop()});
+if(window.ResizeObserver)new ResizeObserver(()=>{if(S.view==='crop'&&C.drag<0)layoutCrop()}).observe($('#stage'));
 $('#c-auto').onclick=()=>{const q=detectQuad(C.img);if(q){C.q=q;drawCrop()}else{toast('לא זוהה דף, גררו את הפינות ידנית')}};
 $('#c-full').onclick=()=>{C.q=[[0,0],[1,0],[1,1],[0,1]];drawCrop()};
-$('#c-cancel').onclick=()=>{C.p.ready=true;show('list');renderList();pump()};
-$('#c-done').onclick=()=>{C.p.quad=C.q.map(a=>[...a]);openEdit(C.p)};
+$('#c-cancel').onclick=()=>{show('list');renderList()};
+$('#c-done').onclick=()=>{C.p.quad=C.q.map(a=>[...a]);openEdit(C.p);pump()};
 
 /* ---------- מסך שיפור ---------- */
 const E={p:null,raw:null};
 async function openEdit(p){
-  E.p=p;show('edit');busy(true,'מיישר את הדף…');await tick();
+  E.p=p;show('edit');ocrUI();busy(true,'מיישר את הדף…');await tick();
   free(E.raw);E.raw=await warpRaw(p,1400);busy(false);renderEdit();
 }
 function renderEdit(){
@@ -629,10 +645,10 @@ function renderEdit(){
 }
 document.querySelectorAll('#modes button').forEach(b=>b.onclick=()=>{E.p.mode=b.dataset.m;renderEdit()});
 $('#thr').oninput=e=>{E.p.thr=+e.target.value;renderEdit()};
-$('#e-left').onclick=()=>{E.p.rot=(E.p.rot+3)%4;renderEdit()};
-$('#e-right').onclick=()=>{E.p.rot=(E.p.rot+1)%4;renderEdit()};
+$('#e-left').onclick=()=>{E.p.rot=(E.p.rot+3)%4;renderEdit();pump()};
+$('#e-right').onclick=()=>{E.p.rot=(E.p.rot+1)%4;renderEdit();pump()};
 $('#e-corners').onclick=()=>openCrop(E.p);
-async function finishEdit(){busy(true,'שומר…');await tick();await makeThumb(E.p);E.p.ready=true;busy(false);show('list');renderList();pump()}
+async function finishEdit(){busy(true,'שומר…');await tick();await makeThumb(E.p);busy(false);show('list');renderList();pump()}
 $('#e-done').onclick=async()=>{await finishEdit();openExport()};
 $('#e-more').onclick=async()=>{if(noLive()){$('#f-cam').click();await finishEdit()}else{await finishEdit();openCam()}};
 
@@ -678,14 +694,14 @@ async function buildPdf(withText){
     const p=S.pages[i];
     busy(true,'מכין עמוד '+(i+1)+' מתוך '+S.pages.length+'…');await tick();
     const c=await renderFinal(p,2000);
-    const land=c.width>c.height,w=land?297:210,h=w*c.height/c.width,o=land?'l':'p',k=w/c.width;
+    const land=c.width>c.height,w=land?297:210,h=w*c.height/c.width,o=land?'l':'p';
     const url=c.toDataURL('image/jpeg',.85);free(c);
     if(!pdf){pdf=new jspdf.jsPDF({unit:'mm',format:[w,h],orientation:o,compress:true});
       if(font){pdf.addFileToVFS('Heebo.ttf',font);pdf.addFont('Heebo.ttf','Heebo','normal');pdf.setFont('Heebo')}}
     else pdf.addPage([w,h],o);
     pdf.addImage(url,'JPEG',0,0,w,h,undefined,'FAST');
-    if(font&&p.ocr&&p.ocr.key===pageKey(p))
-      for(const l of p.ocr.lines){
+    if(font&&ocrDone(p))
+      for(const l of p.ocr.lines){const k=w/p.ocr.w; // קואורדינטות הזיהוי לפי גודל התמונה שעליה רץ
         const lh=Math.max(1,(l.b.y1-l.b.y0)*k);pdf.setFontSize(lh/0.3528);
         for(const r of runs(l.words)){
           const tw=pdf.getTextWidth(r.v);if(!tw)continue;
@@ -731,7 +747,7 @@ $('#x-img').onclick=async()=>{
 const TESS='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/',TCORE='https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1';
 const FONT_URL='https://cdn.jsdelivr.net/npm/@expo-google-fonts/heebo@0.2.3/Heebo_400Regular.ttf';
 const PUBLIC_URL='https://idohenig2001-gif.github.io/scan-k7x2m9q4/';
-const O={worker:null,state:'idle',cur:null,loadMsg:'',dirty:false,lastTxt:'',back:'list'};
+const O={worker:null,state:'idle',cur:null,loadMsg:'',loadFrac:0,errMsg:'',dirty:false,lastTxt:'',back:'list'};
 const pageKey=p=>JSON.stringify([p.id,p.quad,p.rot]);
 const HEB=/[֐-׿]/,MIR={'(':')',')':'(','[':']',']':'[','{':'}','}':'{','<':'>','>':'<'};
 // מילה עברית נכתבת ל-PDF בסדר חזותי (כמו ש-Word שומר עברית), כדי שהקוראים יחלצו אותה נכון
@@ -754,54 +770,94 @@ async function hebFont(){
 }
 const loadScript=src=>new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('script'));document.head.append(s)});
 const timeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]);
-/* המנוע נטען מראש כשהדף נפתח; כל עמוד מזוהה ברקע (ב-Web Worker) מיד כשסיים עיבוד */
+/* המנוע נטען מראש כשהדף נפתח; כל עמוד מזוהה ברקע (ב-Web Worker) מרגע הצילום */
+const OCR_SIDE=1700; // צד ארוך של התמונה לזיהוי: מספיק לטקסט מודפס, ומהיר יותר בטלפון
 function onLog(m){
-  if(m.status==='recognizing text'&&O.cur){O.cur.ocrProg=m.progress;ocrUI()}
-  else if(O.state==='loading'&&/loading|initializ/.test(m.status||'')){O.loadMsg=m.status.includes('traineddata')?'טוען עברית ואנגלית':'טוען מנוע זיהוי';ocrUI()}
+  const s=m.status||'';
+  if(s==='recognizing text'&&O.cur){O.cur.ocrProg=m.progress;ocrUI();return}
+  if(O.state!=='loading')return;
+  O.loadMsg=s.includes('traineddata')?'טוען חבילת שפה (עברית ואנגלית), פעם ראשונה בלבד':s.includes('core')?'טוען מנוע זיהוי, פעם ראשונה בלבד':'מכין את מנוע הזיהוי';
+  O.loadFrac=m.progress||0;ocrUI();
 }
 async function getWorker(){
   if(!window.Tesseract)await loadScript(TESS+'tesseract.min.js');
-  return Tesseract.createWorker(['heb','eng'],1,{workerPath:TESS+'worker.min.js',corePath:TCORE,logger:onLog});
+  return Tesseract.createWorker(['heb','eng'],1,{workerPath:TESS+'worker.min.js',corePath:TCORE,logger:onLog,
+    errorHandler:e=>{O.errMsg=String(e&&e.message||e);console.error(e)}});
 }
 function ensureEngine(){
-  if(O.state!=='idle')return;O.state='loading';O.loadMsg='טוען מנוע זיהוי';ocrUI();
-  timeout(getWorker(),120000).then(w=>{O.worker=w;O.state='ready';pump()},e=>{O.state='failed';console.error(e);ocrUI()});
+  if(O.state!=='idle')return;O.state='loading';O.loadMsg='טוען מנוע זיהוי, פעם ראשונה בלבד';O.loadFrac=0;ocrUI();
+  timeout(getWorker(),120000).then(w=>{O.worker=w;O.state='ready';pump()},
+    e=>{O.state='failed';O.errMsg=e.message==='timeout'?'הטעינה לקחה יותר משתי דקות':e.message==='script'?'קובץ המנוע לא נטען':String(e.message||e);console.error(e);ocrUI()});
+}
+function retryOcr(p){
+  if(O.state==='failed'){O.state='idle';O.errMsg='';ensureEngine()}
+  if(p)p.ocrErr=null;pump();
 }
 const ocrDone=p=>!!(p.ocr&&p.ocr.key===pageKey(p));
-const pendingPages=()=>S.pages.filter(p=>p.ready!==false&&!ocrDone(p)&&p.ocrErr!==pageKey(p));
+const pendingPages=()=>S.pages.filter(p=>!ocrDone(p)&&p.ocrErr!==pageKey(p));
+const viewedPage=()=>S.view==='crop'?C.p:S.view==='edit'?E.p:null;
 async function pump(){
   ocrUI();
   if(O.state!=='ready'||O.cur)return;
-  const p=pendingPages()[0];if(!p)return;
+  const L=pendingPages(),v=viewedPage(),p=L.includes(v)?v:L[0];if(!p)return; // העמוד שעל המסך קודם
   O.cur=p;p.ocrProg=0;const key=pageKey(p);ocrUI();
   try{
-    const c=await renderFinal(p,2000,'gray');
+    await tick();
+    const c=await renderFinal(p,OCR_SIDE,'gray'),cw=c.width;
     const {data}=await O.worker.recognize(c);free(c);
     const clean=s=>(s||'').replace(/[‎‏‪-‮]/g,''); // Tesseract מוסיף סימני כיווון בלתי נראים
-    p.ocr={key,text:clean(data.text).replace(/[ \t]+\n/g,'\n').trim(),conf:data.confidence,
+    p.ocr={key,w:cw,text:clean(data.text).replace(/[ \t]+\n/g,'\n').trim(),conf:data.confidence,
       lines:(data.lines||[]).map(l=>({b:l.bbox,words:l.words.map(x=>({t:clean(x.text),b:x.bbox}))}))};
-  }catch(e){p.ocrErr=key;console.error(e)}
+  }catch(e){p.ocrErr=key;p.ocrErrMsg=String(e&&e.message||e);console.error(e)}
   O.cur=null;setTimeout(pump,0);
 }
 /* מצב הזיהוי בכרטיס של כל עמוד, במצלמה ובמסך הטקסט */
 function pageStatus(p){
-  if(p.ready===false)return '';
   if(ocrDone(p))return 'טקסט ✓ '+Math.round(p.ocr.conf)+'%';
-  if(O.state==='failed'||p.ocrErr===pageKey(p))return 'טקסט: לא זמין כאן';
-  if(O.cur===p)return 'מזהה טקסט '+Math.round((p.ocrProg||0)*100)+'%';
-  return O.state==='loading'?O.loadMsg+'…':'טקסט: בתור';
+  if(O.state==='failed')return 'טקסט: הזיהוי נכשל';
+  if(p.ocrErr===pageKey(p))return 'טקסט: הזיהוי נכשל';
+  if(O.cur===p)return 'מזהה טקסט… '+Math.round((p.ocrProg||0)*100)+'%';
+  return O.state==='ready'?'טקסט: ממתין בתור':O.loadMsg+'…';
+}
+/* פאנל טקסט גלוי במסכי העמוד (חיתוך ושיפור): התקדמות גדולה ואז הטקסט עצמו */
+function renderPanel(el,p){
+  if(!p){el.hidden=true;return}
+  if(!el.firstChild){
+    el.innerHTML='<div class="oh"><span class="ot"></span><button class="link or">נסו שוב</button><button class="link oa">כל הטקסט</button></div><div class="meter"><i></i></div><div class="od note"></div><div class="otx" dir="rtl"></div>';
+    el.querySelector('.oa').onclick=()=>openOcr(S.view==='crop'?'crop':'edit');
+    el.querySelector('.or').onclick=()=>retryOcr(viewedPage());
+  }
+  el.hidden=false;
+  const key=pageKey(p),done=ocrDone(p),failed=O.state==='failed',err=!done&&p.ocrErr===key;
+  let head,frac=null,detail='',bad=false;
+  if(done)head='טקסט שזוהה · ביטחון '+Math.round(p.ocr.conf)+'%';
+  else if(failed){head='זיהוי הטקסט נכשל: מנוע הזיהוי לא נטען.';detail='בדקו חיבור לאינטרנט ולחצו "נסו שוב".'+(O.errMsg?' (פרטים: '+O.errMsg+')':'');bad=true}
+  else if(err){head='הזיהוי של העמוד הזה נכשל.';detail=p.ocrErrMsg?'(פרטים: '+p.ocrErrMsg+')':'';bad=true}
+  else if(O.state!=='ready'){head=O.loadMsg+'… '+Math.round(O.loadFrac*100)+'%';frac=O.loadFrac;detail='הזיהוי יתחיל מעצמו מיד אחרי הטעינה.'}
+  else if(O.cur===p){head=(p.ocr?'מעדכן את הזיהוי':'מזהה טקסט')+'… '+Math.round((p.ocrProg||0)*100)+'%';frac=p.ocrProg||0;detail='בטלפון זה לוקח כמה שניות. אפשר להמשיך בינתיים.'}
+  else{head='ממתין לזיהוי (עמוד אחר מזוהה עכשיו)…';frac=0}
+  const ot=el.querySelector('.ot');ot.textContent=head;ot.classList.toggle('bad',bad);
+  el.querySelector('.or').hidden=!(failed||err);
+  el.querySelector('.oa').hidden=!(done||p.ocr);
+  el.querySelector('.meter').hidden=frac===null;el.querySelector('.meter i').style.width=Math.round((frac||0)*100)+'%';
+  el.querySelector('.od').textContent=detail;
+  const tx=el.querySelector('.otx'),txt=p.ocr?(p.ocr.text||'(לא זוהה טקסט בעמוד)'):'';
+  if(tx.textContent!==txt)tx.textContent=txt;
+  tx.hidden=!txt;tx.classList.toggle('stale',!done);
 }
 let uiQueued=false;
 function ocrUI(){if(uiQueued)return;uiQueued=true;requestAnimationFrame(()=>{uiQueued=false;drawOcrUI()});setTimeout(()=>{if(uiQueued){uiQueued=false;drawOcrUI()}},300)}
 function drawOcrUI(){
   document.querySelectorAll('.ocrs').forEach(b=>{const p=S.pages.find(x=>x.id==b.dataset.id);if(p)b.textContent=pageStatus(p)});
-  const n=S.pages.filter(p=>p.ready!==false).length,left=pendingPages().length,k=$('#k-ocr');
+  const n=S.pages.length,left=pendingPages().length,k=$('#k-ocr');
   k.hidden=!n||O.state==='failed'||!left;k.textContent='טקסט '+(n-left)+'/'+n;
   if(S.view==='ocr')refreshOcrView();
+  if(S.view==='crop')renderPanel($('#c-ocr'),C.p);
+  if(S.view==='edit')renderPanel($('#e-ocr'),E.p);
 }
 function composeText(){
   const P=S.pages,n=P.length;
-  return P.map((p,i)=>(n>1?'— עמוד '+(i+1)+' —\n':'')+(ocrDone(p)?p.ocr.text||'(לא זוהה טקסט)':'('+(pageStatus(p)||'העמוד עדיין בעריכה')+')')).join('\n\n');
+  return P.map((p,i)=>(n>1?'— עמוד '+(i+1)+' —\n':'')+(ocrDone(p)?p.ocr.text||'(לא זוהה טקסט)':'('+pageStatus(p)+')')).join('\n\n');
 }
 function refreshOcrView(){
   const P=S.pages,done=P.filter(ocrDone),left=pendingPages().length,ta=$('#o-text');
@@ -835,7 +891,12 @@ function openOcr(from){
 }
 $('#x-ocr').onclick=()=>openOcr('export');
 $('#b-text').onclick=()=>openOcr('list');
-$('#o-back').onclick=()=>{if(O.back==='export')openExport();else{show('list');renderList()}};
+$('#o-back').onclick=()=>{
+  if(O.back==='export')openExport();
+  else if(O.back==='crop'){show('crop');layoutCrop();ocrUI()}
+  else if(O.back==='edit'){show('edit');ocrUI()}
+  else{show('list');renderList()}
+};
 $('#o-text').addEventListener('input',()=>{if(!O.dirty){O.dirty=true;O.lastTxt=composeText()}});
 $('#o-upd').onclick=()=>{O.dirty=false;refreshOcrView()};
 $('#o-copy').onclick=()=>{
