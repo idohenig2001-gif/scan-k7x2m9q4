@@ -1,0 +1,661 @@
+<title>סורק מסמכים</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+/* פריסה: אפליקציית מסך אחד בעמודה; כל מסך תופס את כל הגובה, סרגל פעולות גדול בתחתית לאגודל */
+:root{
+  --bg:#EDEFF2; --surface:#FFFFFF; --ink:#17212B; --muted:#5B6875; --line:#D5DAE0;
+  --accent:#0B7A6B; --accent-ink:#FFFFFF; --danger:#B3261E; --stage:#0E1317; --dim:rgba(8,12,15,.55);
+  --font:'Heebo',system-ui,-apple-system,'Segoe UI',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#11161B; --surface:#1B222A; --ink:#E8EDF1; --muted:#9AA7B3; --line:#2D3640;
+  --accent:#3CCBB5; --accent-ink:#06201B; --danger:#FF8A80; --stage:#080B0E; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11161B; --surface:#1B222A; --ink:#E8EDF1; --muted:#9AA7B3; --line:#2D3640;
+  --accent:#3CCBB5; --accent-ink:#06201B; --danger:#FF8A80; --stage:#080B0E; color-scheme:dark}
+html,body{height:100%;margin:0}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:17px;line-height:1.4;
+  -webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+*{box-sizing:border-box}
+#app{height:100%;display:flex;flex-direction:column}
+.view{flex:1;min-height:0;display:flex;flex-direction:column}
+.pad{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:14px 10px}
+h1{margin:0;font-size:26px;font-weight:800;letter-spacing:-.01em}
+.sub{color:var(--muted);font-size:15px}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.btn{min-height:56px;padding:0 18px;border-radius:14px;background:var(--surface);border:1.5px solid var(--line);
+  font-weight:700;display:flex;align-items:center;justify-content:center;gap:10px;flex:1;min-width:0;white-space:nowrap}
+.btn:active{transform:scale(.98)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.sm{min-height:48px;font-size:16px}
+.btn[disabled]{opacity:.45;pointer-events:none}
+.bar{display:flex;gap:10px;padding-block:12px calc(12px);background:var(--bg);border-top:1px solid var(--line)}
+.bar.wrap{flex-wrap:wrap}
+svg.i{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+/* רשימת עמודים */
+.scroll{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-block:6px 16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.thumb{position:relative;height:190px;background:var(--stage);display:flex;align-items:center;justify-content:center;width:100%}
+.thumb img{max-width:100%;max-height:100%;object-fit:contain}
+.num{position:absolute;top:8px;inset-inline-start:8px;background:var(--accent);color:var(--accent-ink);font-weight:800;font-size:15px;
+  min-width:30px;height:30px;border-radius:15px;display:flex;align-items:center;justify-content:center;padding:0 8px;font-variant-numeric:tabular-nums}
+.acts{display:grid;grid-template-columns:repeat(4,1fr)}
+.acts button{height:50px;display:flex;align-items:center;justify-content:center;border-top:1px solid var(--line);color:var(--ink)}
+.acts button+button{border-inline-start:1px solid var(--line)}
+.acts button.del.arm{background:var(--danger);color:#fff}
+.acts button:disabled{opacity:.3}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;padding:40px 12px;color:var(--muted);min-height:50vh}
+.empty svg{width:84px;height:84px;stroke:var(--accent);stroke-width:1.5}
+.empty strong{color:var(--ink);font-size:21px}
+/* חיתוך */
+.stage{flex:1;min-height:0;background:var(--stage);position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+#cropc{touch-action:none;display:block}
+#prev{max-width:100%;max-height:100%;box-shadow:0 2px 18px rgba(0,0,0,.45);background:#fff}
+.stage.pad{padding-block:12px}
+.hint{color:var(--muted);font-size:15px;padding-block:10px 0;text-align:center}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:100%}
+.seg button{min-height:52px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);font-weight:700;font-size:15px;padding:0 4px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.row{display:flex;gap:10px;width:100%}
+.ctl{display:flex;flex-direction:column;gap:10px;padding-block:12px;background:var(--bg);border-top:1px solid var(--line)}
+.slider{display:flex;align-items:center;gap:12px;font-weight:500;font-size:15px}
+.slider input{flex:1;height:36px;accent-color:var(--accent)}
+/* ייצוא */
+.field{display:flex;flex-direction:column;gap:8px;margin-block:8px}
+.field label{font-weight:700}
+.field input{height:56px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);padding:0 14px;font-size:18px;width:100%}
+.stack{display:flex;flex-direction:column;gap:12px;margin-top:16px}
+.note{color:var(--muted);font-size:15px}
+.ok{color:var(--accent);font-weight:700}
+#busy{position:fixed;inset:0;background:var(--dim);display:flex;align-items:center;justify-content:center;z-index:50}
+#busy div{background:var(--surface);padding:22px 28px;border-radius:16px;font-weight:700;display:flex;gap:14px;align-items:center;max-width:80vw}
+.spin{width:26px;height:26px;border-radius:50%;border:4px solid var(--line);border-top-color:var(--accent);animation:sp .8s linear infinite;flex:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:2.4s}}
+.hero-scan{width:min(260px,70vw);aspect-ratio:1;max-width:100%;border-radius:50%;background:var(--accent);color:var(--accent-ink);
+  font-size:30px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  box-shadow:0 10px 30px color-mix(in srgb,var(--accent) 35%,transparent)}
+.hero-scan svg.i{width:64px;height:64px;stroke-width:1.6;stroke:currentColor}
+.link{color:var(--accent);font-weight:700;min-height:48px;padding:0 12px;text-decoration:underline}
+/* מצלמה חיה: מראה כהה קבוע בכוונה, כמו באפליקציות סריקה */
+#v-cam{background:#000;color:#fff}
+.camstage{position:relative;flex:1;min-height:0;overflow:hidden;background:#000}
+#vid,#ovl{position:absolute;inset:0;width:100%;height:100%}
+#vid{object-fit:cover}
+.camtop{position:absolute;top:0;inset-inline:0;display:flex;justify-content:space-between;align-items:center;padding-block:12px;z-index:2}
+.pill{background:rgba(0,0,0,.55);color:#fff;border-radius:24px;min-height:46px;padding:0 16px;font-weight:700;font-size:16px;display:flex;align-items:center;gap:8px}
+.pill[aria-pressed="true"]{background:#2ECC71;color:#04210F}
+.camhint{position:absolute;bottom:14px;inset-inline:0;display:flex;justify-content:center;z-index:2;pointer-events:none}
+.camhint span{background:rgba(0,0,0,.6);padding:8px 16px;border-radius:20px;font-weight:700;font-size:16px}
+.cambar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding-block:16px 20px;background:#000}
+.cambar>:first-child{justify-self:start}.cambar>:last-child{justify-self:end}
+.shutter{width:80px;height:80px;border-radius:50%;position:relative;display:flex;align-items:center;justify-content:center}
+.shutter svg{position:absolute;inset:0;width:80px;height:80px;transform:rotate(-90deg)}
+.shutter i{width:62px;height:62px;border-radius:50%;background:#fff;display:block}
+.shutter:active i{transform:scale(.92)}
+.camside{min-width:76px;min-height:56px;color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:14px}
+.camside.done{background:#2ECC71;color:#04210F;padding:0 14px}
+#flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .25s}
+.blocked{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:24px;z-index:3;background:#000}
+.blocked .btn{flex:none;width:100%;max-width:320px;background:#2ECC71;color:#04210F;border-color:#2ECC71}
+#toast{position:fixed;inset-inline:16px;bottom:calc(100px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:14px 16px;border-radius:12px;font-weight:700;z-index:60;text-align:center}
+</style>
+
+<div id="app" dir="rtl" lang="he">
+
+<section class="view" id="v-list">
+  <div class="top pad"><h1>סורק מסמכים</h1><span class="sub" id="count"></span></div>
+  <div class="scroll pad"><div class="grid" id="grid"></div></div>
+  <div class="bar pad">
+    <button class="btn primary" id="b-cam"><svg class="i" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>סרוק</button>
+    <button class="btn" id="b-gal"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.7"/><path d="M21 16l-5-5-8 9"/></svg>גלריה</button>
+    <button class="btn" id="b-exp"><svg class="i" viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 20h14"/></svg>PDF</button>
+  </div>
+</section>
+
+<section class="view" id="v-cam" hidden>
+  <div class="camstage" id="camstage">
+    <video id="vid" playsinline muted autoplay></video>
+    <canvas id="ovl"></canvas>
+    <div id="flash"></div>
+    <div class="camtop pad">
+      <button class="pill" id="k-close" aria-label="סגור מצלמה">✕ סגור</button>
+      <button class="pill" id="k-auto" aria-pressed="true">צילום אוטומטי</button>
+    </div>
+    <div class="camhint"><span id="k-hint">מפעיל מצלמה…</span></div>
+    <div class="blocked" id="k-blocked" hidden>
+      <strong style="font-size:20px">המצלמה החיה לא זמינה כאן</strong>
+      <span style="color:#bbb">הדפדפן לא מאפשר לדף הזה תצוגה חיה. אפשר לצלם עם מצלמת הטלפון, ואחר כך לסמן את הפינות.</span>
+      <button class="btn" id="k-native">פתח את מצלמת הטלפון</button>
+      <button class="link" id="k-back" style="color:#fff">חזרה</button>
+    </div>
+  </div>
+  <div class="cambar pad">
+    <button class="camside" id="k-gal" aria-label="בחר מהגלריה"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.7"/><path d="M21 16l-5-5-8 9"/></svg></button>
+    <button class="shutter" id="k-shot" aria-label="צלם"><svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="36" fill="none" stroke="#fff" stroke-width="5"/><circle id="k-ring" cx="40" cy="40" r="36" fill="none" stroke="#2ECC71" stroke-width="5" stroke-dasharray="226.2" stroke-dashoffset="226.2"/></svg><i></i></button>
+    <button class="camside" id="k-done" hidden></button>
+  </div>
+</section>
+
+<section class="view" id="v-crop" hidden>
+  <div class="top pad"><h1>חיתוך הדף</h1><button class="btn sm" id="c-cancel" style="flex:none">ביטול</button></div>
+  <div class="stage" id="stage"><canvas id="cropc"></canvas></div>
+  <div class="ctl pad">
+    <div class="hint" style="padding:0">גררו את ארבע הפינות עד שהמסגרת מתאימה לדף</div>
+    <div class="row">
+      <button class="btn sm" id="c-auto">זיהוי אוטומטי</button>
+      <button class="btn sm" id="c-full">כל התמונה</button>
+    </div>
+    <button class="btn primary" id="c-done">המשך</button>
+  </div>
+</section>
+
+<section class="view" id="v-edit" hidden>
+  <div class="top pad"><h1>שיפור הדף</h1><button class="btn sm" id="e-corners" style="flex:none">פינות</button></div>
+  <div class="stage pad" id="estage"><canvas id="prev"></canvas></div>
+  <div class="ctl pad">
+    <div class="seg" id="modes">
+      <button data-m="orig">מקורי</button><button data-m="color">צבעוני</button>
+      <button data-m="gray">אפור</button><button data-m="bw">שחור-לבן</button>
+    </div>
+    <label class="slider" id="thr-wrap" hidden>חדות<input type="range" id="thr" min="130" max="235" value="200"></label>
+    <div class="row">
+      <button class="btn sm" id="e-left" aria-label="סובב שמאלה"><svg class="i" viewBox="0 0 24 24"><path d="M4 9a8 8 0 1 1-1 5M4 4v5h5"/></svg>סובב</button>
+      <button class="btn sm" id="e-right" aria-label="סובב ימינה"><svg class="i" viewBox="0 0 24 24" style="transform:scaleX(-1)"><path d="M4 9a8 8 0 1 1-1 5M4 4v5h5"/></svg>סובב</button>
+    </div>
+    <div class="row">
+      <button class="btn sm" id="e-more">+ עמוד נוסף</button>
+      <button class="btn primary sm" id="e-done">סיום ל-PDF</button>
+    </div>
+  </div>
+</section>
+
+<section class="view" id="v-export" hidden>
+  <div class="top pad"><h1>ייצוא</h1><button class="btn sm" id="x-back" style="flex:none">חזרה</button></div>
+  <div class="scroll pad">
+    <div class="field"><label for="docname">שם הקובץ</label><input id="docname" type="text" autocomplete="off" maxlength="80"></div>
+    <div class="note" id="x-info"></div>
+    <div class="stack">
+      <button class="btn primary" id="x-pdf"><svg class="i" viewBox="0 0 24 24"><path d="M6 3h8l5 5v13H6z"/><path d="M14 3v5h5"/></svg>הורד PDF אחד</button>
+      <button class="btn" id="x-img"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.7"/><path d="M21 16l-5-5-8 9"/></svg><span id="x-imgl">הורד תמונות</span></button>
+      <div class="note" id="x-msg" role="status"></div>
+      <div class="row" id="x-ready" hidden>
+        <button class="btn primary sm" id="x-save">שמור לטלפון</button>
+        <button class="btn sm" id="x-share" hidden>שתף</button>
+      </div>
+      <div class="note">הקבצים נשמרים בטלפון בלבד. כל העיבוד מתבצע במכשיר ושום תמונה לא נשלחת לשרת.</div>
+    </div>
+  </div>
+</section>
+
+<div id="busy" hidden><div><span class="spin"></span><span id="busy-t">מעבד…</span></div></div>
+<div id="toast" hidden></div>
+<input type="file" id="f-cam" accept="image/*" capture="environment" hidden>
+<input type="file" id="f-gal" accept="image/*" multiple hidden>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const S={pages:[],cur:null,view:'list'};
+let uid=0, dl=null;
+
+/* ---------- כלים כלליים ---------- */
+const tick=()=>new Promise(r=>setTimeout(r,16));
+function show(v){document.querySelectorAll('.view').forEach(e=>e.hidden=e.id!=='v-'+v);S.view=v}
+function busy(on,t){$('#busy').hidden=!on;if(t)$('#busy-t').textContent=t}
+let tt;function toast(t){const e=$('#toast');e.textContent=t;e.hidden=false;clearTimeout(tt);tt=setTimeout(()=>e.hidden=true,2800)}
+const mk=(w,h)=>{const c=document.createElement('canvas');c.width=w;c.height=h;return c};
+const free=c=>{if(c){c.width=0;c.height=0}};
+const ICON={
+ prev:'<svg class="i" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>',
+ next:'<svg class="i" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>',
+ rot:'<svg class="i" viewBox="0 0 24 24"><path d="M20 9a8 8 0 1 0 1 5M20 4v5h-5"/></svg>',
+ del:'<svg class="i" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>'};
+
+/* ---------- טעינת תמונה ---------- */
+async function fileToCanvas(file,max){
+  const url=URL.createObjectURL(file);
+  try{
+    const im=new Image();im.src=url;await im.decode();
+    const s=Math.min(1,max/Math.max(im.naturalWidth,im.naturalHeight));
+    const c=mk(Math.round(im.naturalWidth*s),Math.round(im.naturalHeight*s));
+    c.getContext('2d').drawImage(im,0,0,c.width,c.height);return c;
+  }finally{setTimeout(()=>URL.revokeObjectURL(url),2000)}
+}
+const toBlob=(c,q)=>new Promise(r=>c.toBlob(r,'image/jpeg',q));
+async function decodeSource(p,max){
+  const url=URL.createObjectURL(p.blob);
+  try{
+    const im=new Image();im.src=url;await im.decode();
+    const s=Math.min(1,max/Math.max(im.naturalWidth,im.naturalHeight));
+    const c=mk(Math.round(im.naturalWidth*s),Math.round(im.naturalHeight*s));
+    c.getContext('2d').drawImage(im,0,0,c.width,c.height);return c;
+  }finally{URL.revokeObjectURL(url)}
+}
+
+/* ---------- זיהוי קצוות הדף ---------- */
+function boxBlur(a,w,h,r,passes){
+  let src=a,tmp=new Float32Array(w*h);
+  for(let p=0;p<passes;p++){
+    for(let y=0;y<h;y++){let s=0,row=y*w;
+      for(let x=-r;x<=r;x++)s+=src[row+Math.min(w-1,Math.max(0,x))];
+      for(let x=0;x<w;x++){tmp[row+x]=s/(2*r+1);
+        s+=src[row+Math.min(w-1,x+r+1)]-src[row+Math.max(0,x-r)]}}
+    for(let x=0;x<w;x++){let s=0;
+      for(let y=-r;y<=r;y++)s+=tmp[Math.min(h-1,Math.max(0,y))*w+x];
+      for(let y=0;y<h;y++){src[y*w+x]=s/(2*r+1);
+        s+=tmp[Math.min(h-1,y+r+1)*w+x]-tmp[Math.max(0,y-r)*w+x]}}
+  }
+  return src;
+}
+function otsu(g){
+  const hist=new Array(256).fill(0);for(const v of g)hist[Math.max(0,Math.min(255,v|0))]++;
+  const tot=g.length;let sum=0;for(let i=0;i<256;i++)sum+=i*hist[i];
+  let sb=0,wb=0,best=0,t=128;
+  for(let i=0;i<256;i++){wb+=hist[i];if(!wb)continue;const wf=tot-wb;if(!wf)break;
+    sb+=i*hist[i];const mb=sb/wb,mf=(sum-sb)/wf,v=wb*wf*(mb-mf)*(mb-mf);if(v>best){best=v;t=i}}
+  return t;
+}
+const defaultQuad=()=>[[.06,.06],[.94,.06],[.94,.94],[.06,.94]];
+function detectQuad(canvas){
+  const s=Math.min(1,420/Math.max(canvas.width,canvas.height));
+  const w=Math.max(8,Math.round(canvas.width*s)),h=Math.max(8,Math.round(canvas.height*s));
+  const sc=mk(w,h);sc.getContext('2d').drawImage(canvas,0,0,w,h);
+  const d=sc.getContext('2d').getImageData(0,0,w,h).data;free(sc);
+  const g=new Float32Array(w*h);
+  for(let i=0;i<w*h;i++)g[i]=.299*d[i*4]+.587*d[i*4+1]+.114*d[i*4+2];
+  boxBlur(g,w,h,3,2);
+  const t=otsu(g),per=2*(w+h);let best=null;
+  for(const pol of [1,-1]){
+    const m=new Uint8Array(w*h);for(let i=0;i<w*h;i++)m[i]=(pol>0?g[i]>t:g[i]<=t)?1:0;
+    const seen=new Uint8Array(w*h),stack=new Int32Array(w*h);
+    for(let st=0;st<w*h;st++){
+      if(!m[st]||seen[st])continue;
+      let sp=0,area=0,border=0;stack[sp++]=st;seen[st]=1;
+      let tl=[0,0,1e9],br=[0,0,-1e9],tr=[0,0,-1e9],bl=[0,0,1e9];
+      while(sp){const i=stack[--sp],x=i%w,y=(i-x)/w;area++;
+        if(x===0||y===0||x===w-1||y===h-1)border++;
+        const a=x+y,b=x-y;
+        if(a<tl[2])tl=[x,y,a];if(a>br[2])br=[x,y,a];if(b>tr[2])tr=[x,y,b];if(b<bl[2])bl=[x,y,b];
+        if(x>0&&m[i-1]&&!seen[i-1]){seen[i-1]=1;stack[sp++]=i-1}
+        if(x<w-1&&m[i+1]&&!seen[i+1]){seen[i+1]=1;stack[sp++]=i+1}
+        if(y>0&&m[i-w]&&!seen[i-w]){seen[i-w]=1;stack[sp++]=i-w}
+        if(y<h-1&&m[i+w]&&!seen[i+w]){seen[i+w]=1;stack[sp++]=i+w}}
+      if(area<w*h*.08)continue;
+      const q=[tl,tr,br,bl];let qa=0;
+      for(let k=0;k<4;k++){const p=q[k],n=q[(k+1)%4];qa+=p[0]*n[1]-n[0]*p[1]}
+      qa=Math.abs(qa)/2;
+      if(qa<w*h*.1||qa>w*h*.985||area/qa<.6)continue;
+      const score=area*(1-Math.min(1,border/(per*.5)));
+      if(!best||score>best.score)best={score,q:q.map(p=>[(p[0]+.5)/w,(p[1]+.5)/h])};
+    }
+  }
+  return best?best.q:null;
+}
+
+/* ---------- יישור פרספקטיבה ---------- */
+function homography(dst,src){
+  const A=[];
+  for(let i=0;i<4;i++){const[x,y]=dst[i],[u,v]=src[i];
+    A.push([x,y,1,0,0,0,-u*x,-u*y,u]);A.push([0,0,0,x,y,1,-v*x,-v*y,v])}
+  for(let c=0;c<8;c++){let p=c;for(let r=c+1;r<8;r++)if(Math.abs(A[r][c])>Math.abs(A[p][c]))p=r;
+    [A[c],A[p]]=[A[p],A[c]];
+    for(let r=0;r<8;r++){if(r===c)continue;const f=A[r][c]/A[c][c];for(let k=c;k<9;k++)A[r][k]-=f*A[c][k]}}
+  return A.map((r,i)=>r[8]/r[i]);
+}
+function warp(srcC,q,maxSide){
+  const dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+  let W=Math.max(dist(q[0],q[1]),dist(q[3],q[2])),H=Math.max(dist(q[0],q[3]),dist(q[1],q[2]));
+  const s=Math.min(1,maxSide/Math.max(W,H));W=Math.max(8,Math.round(W*s));H=Math.max(8,Math.round(H*s));
+  const m=homography([[0,0],[W,0],[W,H],[0,H]],q);
+  const sw=srcC.width,sh=srcC.height,sd=srcC.getContext('2d').getImageData(0,0,sw,sh).data;
+  const out=mk(W,H),ctx=out.getContext('2d'),oi=ctx.createImageData(W,H),od=oi.data;
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    const px=x+.5,py=y+.5,den=m[6]*px+m[7]*py+1;
+    let u=(m[0]*px+m[1]*py+m[2])/den-.5,v=(m[3]*px+m[4]*py+m[5])/den-.5;
+    u=u<0?0:u>sw-1?sw-1:u;v=v<0?0:v>sh-1?sh-1:v;
+    const x0=u|0,y0=v|0,x1=Math.min(sw-1,x0+1),y1=Math.min(sh-1,y0+1),fx=u-x0,fy=v-y0;
+    const i00=(y0*sw+x0)*4,i10=(y0*sw+x1)*4,i01=(y1*sw+x0)*4,i11=(y1*sw+x1)*4,o=(y*W+x)*4;
+    for(let c=0;c<3;c++)od[o+c]=(sd[i00+c]*(1-fx)+sd[i10+c]*fx)*(1-fy)+(sd[i01+c]*(1-fx)+sd[i11+c]*fx)*fy;
+    od[o+3]=255;
+  }
+  ctx.putImageData(oi,0,0);return out;
+}
+
+/* ---------- שיפור קריאות ---------- */
+function enhance(src,mode,thr){
+  const w=src.width,h=src.height,out=mk(w,h),ctx=out.getContext('2d');
+  ctx.drawImage(src,0,0);
+  if(mode==='orig')return out;
+  const sw=Math.max(8,Math.round(w/8)),sh=Math.max(8,Math.round(h/8));
+  const sc=mk(sw,sh);sc.getContext('2d').drawImage(src,0,0,sw,sh);
+  const sd=sc.getContext('2d').getImageData(0,0,sw,sh).data;free(sc);
+  let a=new Float32Array(sw*sh);
+  for(let i=0;i<sw*sh;i++)a[i]=.299*sd[i*4]+.587*sd[i*4+1]+.114*sd[i*4+2];
+  // סגירה (מקסימום) כדי שהטקסט ייעלם מאומדן הרקע, ואז טשטוש
+  const R=2,b=new Float32Array(sw*sh);
+  for(let y=0;y<sh;y++)for(let x=0;x<sw;x++){let m=0;for(let k=-R;k<=R;k++){const v=a[y*sw+Math.min(sw-1,Math.max(0,x+k))];if(v>m)m=v}b[y*sw+x]=m}
+  for(let y=0;y<sh;y++)for(let x=0;x<sw;x++){let m=0;for(let k=-R;k<=R;k++){const v=b[Math.min(sh-1,Math.max(0,y+k))*sw+x];if(v>m)m=v}a[y*sw+x]=m}
+  a=boxBlur(a,sw,sh,3,2);
+  const id=ctx.getImageData(0,0,w,h),d=id.data;
+  const lut=new Uint8ClampedArray(256);for(let i=0;i<256;i++)lut[i]=255*Math.pow(i/255,1.18);
+  const T=thr||200;
+  for(let y=0;y<h;y++){
+    const fy=Math.min(sh-1.001,y*(sh-1)/(h-1||1)),y0=fy|0,wy=fy-y0;
+    for(let x=0;x<w;x++){
+      const fx=Math.min(sw-1.001,x*(sw-1)/(w-1||1)),x0=fx|0,wx=fx-x0;
+      let bg=(a[y0*sw+x0]*(1-wx)+a[y0*sw+x0+1]*wx)*(1-wy)+(a[(y0+1)*sw+x0]*(1-wx)+a[(y0+1)*sw+x0+1]*wx)*wy;
+      if(bg<60)bg=60;const k=248/bg,o=(y*w+x)*4;
+      if(mode==='color'){d[o]=lut[Math.min(255,d[o]*k)|0];d[o+1]=lut[Math.min(255,d[o+1]*k)|0];d[o+2]=lut[Math.min(255,d[o+2]*k)|0]}
+      else{const l=Math.min(255,(.299*d[o]+.587*d[o+1]+.114*d[o+2])*k);
+        const v=mode==='bw'?(l<T?0:255):lut[l|0];d[o]=d[o+1]=d[o+2]=v}
+    }
+  }
+  ctx.putImageData(id,0,0);return out;
+}
+function rotate(c,r){
+  r=((r%4)+4)%4;if(!r)return c;
+  const o=r%2?mk(c.height,c.width):mk(c.width,c.height),x=o.getContext('2d');
+  x.translate(o.width/2,o.height/2);x.rotate(r*Math.PI/2);x.drawImage(c,-c.width/2,-c.height/2);return o;
+}
+async function warpRaw(p,max){
+  const src=await decodeSource(p,max*1.5);
+  const q=p.quad.map(([x,y])=>[x*src.width,y*src.height]);
+  const raw=warp(src,q,max);free(src);return raw;
+}
+async function renderFinal(p,max){
+  const raw=await warpRaw(p,max);const e=enhance(raw,p.mode,p.thr);free(raw);
+  const r=rotate(e,p.rot);if(r!==e)free(e);return r;
+}
+async function makeThumb(p){
+  const c=await renderFinal(p,420);p.thumb=c.toDataURL('image/jpeg',.8);free(c);
+}
+
+/* ---------- רשימת עמודים ---------- */
+function renderList(){
+  const g=$('#grid');g.textContent='';
+  const n=S.pages.length;
+  $('#count').textContent=n?(n===1?'עמוד אחד':n+' עמודים'):'';
+  $('#b-exp').disabled=!n;
+  if(!n){
+    g.style.display='block';
+    g.innerHTML='<div class="empty"><button class="hero-scan" id="hero"><svg class="i" viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 12h10"/></svg>סרוק</button><span>כוונו את המצלמה אל הדף. הקצוות יזוהו לבד.</span><button class="link" id="hero-gal">או בחרו תמונה מהגלריה</button></div>';
+    $('#hero').onclick=openCam;$('#hero-gal').onclick=()=>$('#f-gal').click();
+    return;
+  }
+  g.style.display='';
+  S.pages.forEach((p,i)=>{
+    const c=document.createElement('div');c.className='card';
+    const t=document.createElement('button');t.className='thumb';t.setAttribute('aria-label','עריכת עמוד '+(i+1));
+    const im=document.createElement('img');im.src=p.thumb;im.alt='';
+    const nm=document.createElement('span');nm.className='num';nm.textContent=i+1;
+    t.append(im,nm);t.onclick=()=>openEdit(p);
+    const a=document.createElement('div');a.className='acts';
+    const bt=(h,l,f,cls)=>{const b=document.createElement('button');b.innerHTML=h;b.setAttribute('aria-label',l);if(cls)b.className=cls;b.onclick=f;a.append(b);return b};
+    bt(ICON.prev,'הזז אחורה',()=>move(i,-1)).disabled=i===0;
+    bt(ICON.next,'הזז קדימה',()=>move(i,1)).disabled=i===n-1;
+    bt(ICON.rot,'סובב',async()=>{p.rot=(p.rot+1)%4;await makeThumb(p);renderList()});
+    const d=bt(ICON.del,'מחק עמוד',()=>{
+      if(!d.classList.contains('arm')){d.classList.add('arm');d.setAttribute('aria-label','לחצו שוב כדי למחוק');setTimeout(()=>{d.classList.remove('arm')},3000);return}
+      S.pages.splice(i,1);renderList()},'del');
+    c.append(t,a);g.append(c);
+  });
+}
+function move(i,d){const j=i+d;if(j<0||j>=S.pages.length)return;[S.pages[i],S.pages[j]]=[S.pages[j],S.pages[i]];renderList()}
+
+async function addFiles(files){
+  files=[...files];if(!files.length)return;
+  busy(true,'טוען תמונה…');const added=[];
+  try{
+    for(const f of files){
+      busy(true,files.length>1?'טוען '+(added.length+1)+' מתוך '+files.length+'…':'מזהה קצוות…');await tick();
+      added.push(await addCanvas(await fileToCanvas(f,2400)));
+    }
+  }catch(e){toast('לא הצלחתי לפתוח את התמונה');console.error(e)}
+  busy(false);
+  if(added.length===1)openCrop(added[0]);else{show('list');renderList()}
+}
+async function addCanvas(c,q){
+  if(Math.max(c.width,c.height)>2400){const s=2400/Math.max(c.width,c.height),d=mk(Math.round(c.width*s),Math.round(c.height*s));
+    d.getContext('2d').drawImage(c,0,0,d.width,d.height);free(c);c=d}
+  q=detectQuad(c)||q||defaultQuad();
+  const blob=await toBlob(c,.92);free(c);
+  const p={id:++uid,blob,quad:q,mode:'color',thr:200,rot:0,thumb:''};
+  await makeThumb(p);S.pages.push(p);return p;
+}
+$('#b-cam').onclick=openCam;
+$('#b-gal').onclick=()=>$('#f-gal').click();
+for(const id of ['#f-cam','#f-gal'])$(id).addEventListener('change',e=>{const f=[...e.target.files];addFiles(f).then(()=>{e.target.value=''})});
+
+/* ---------- מצלמה חיה ---------- */
+const K={stream:null,timer:0,raf:0,target:null,shown:null,miss:0,stableMs:0,lastT:0,auto:true,lastCap:null,busy:false,blocked:false};
+const GREEN='#2ECC71',HOLD=1100,vid=$('#vid'),ovl=$('#ovl'),det=document.createElement('canvas');
+const hint=t=>{$('#k-hint').textContent=t};
+const setRing=p=>$('#k-ring').setAttribute('stroke-dashoffset',226.2*(1-p));
+const qdist=(a,b)=>Math.max(...a.map((p,i)=>Math.hypot(p[0]-b[i][0],p[1]-b[i][1])));
+const noLive=()=>K.blocked||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia;
+async function openCam(){
+  if(noLive()){$('#f-cam').click();return}
+  show('cam');const n=S.pages.length,d=$('#k-done');d.hidden=!n;d.className='camside done';d.textContent='סיום ('+n+')';
+  $('#k-blocked').hidden=true;$('#k-shot').hidden=false;hint('מפעיל מצלמה…');
+  K.target=K.shown=null;K.miss=0;K.stableMs=0;K.busy=false;setRing(0);
+  try{
+    K.stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:3840},height:{ideal:2160}}});
+  }catch(e){K.blocked=true;$('#k-blocked').hidden=false;$('#k-shot').hidden=true;return}
+  if(S.view!=='cam'){stopCam();return}
+  vid.srcObject=K.stream;try{await vid.play()}catch(e){}
+  K.lastT=performance.now();detectLoop();K.raf=requestAnimationFrame(drawLoop);
+}
+function stopCam(){
+  clearTimeout(K.timer);cancelAnimationFrame(K.raf);
+  if(K.stream)K.stream.getTracks().forEach(t=>t.stop());K.stream=null;vid.srcObject=null;
+}
+function detectLoop(){
+  if(!K.stream)return;
+  const now=performance.now(),dt=now-K.lastT;K.lastT=now;
+  if(vid.readyState>=2&&vid.videoWidth&&!K.busy){
+    const s=Math.min(1,360/Math.max(vid.videoWidth,vid.videoHeight));
+    det.width=Math.round(vid.videoWidth*s);det.height=Math.round(vid.videoHeight*s);
+    det.getContext('2d').drawImage(vid,0,0,det.width,det.height);
+    const q=detectQuad(det);
+    if(q){
+      const mv=K.target?qdist(q,K.target):1;
+      K.target=K.target?K.target.map((p,i)=>[p[0]*.4+q[i][0]*.6,p[1]*.4+q[i][1]*.6]):q;
+      K.miss=0;K.stableMs=mv<.025?K.stableMs+dt:0;
+    }else if(++K.miss>3){K.target=null;K.stableMs=0;K.lastCap=null}
+    updateAuto();
+  }
+  K.timer=setTimeout(detectLoop,100);
+}
+function updateAuto(){
+  if(!K.target){hint('כוונו את המצלמה אל הדף');setRing(0);return}
+  const armed=!K.lastCap||qdist(K.target,K.lastCap)>.12;
+  if(!K.auto||!armed){hint(armed?'הדף זוהה. לחצו לצילום':'עברו לדף הבא, או לחצו לצילום');setRing(0);return}
+  const p=Math.min(1,K.stableMs/HOLD);setRing(p);hint(p>0?'החזיקו יציב…':'הדף זוהה');
+  if(p>=1)capture();
+}
+function drawLoop(){
+  if(!K.stream)return;
+  const W=ovl.clientWidth,H=ovl.clientHeight,dpr=Math.min(2,devicePixelRatio||1);
+  if(ovl.width!==Math.round(W*dpr)||ovl.height!==Math.round(H*dpr)){ovl.width=Math.round(W*dpr);ovl.height=Math.round(H*dpr)}
+  const x=ovl.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,W,H);
+  const vw=vid.videoWidth,vh=vid.videoHeight;
+  if(vw){
+    const T=K.target;
+    K.shown=T?(K.shown?K.shown.map((p,i)=>[p[0]+(T[i][0]-p[0])*.35,p[1]+(T[i][1]-p[1])*.35]):T.map(p=>[...p])):null;
+    const s=Math.max(W/vw,H/vh),dx=(W-vw*s)/2,dy=(H-vh*s)/2;
+    if(K.shown){
+      const P=K.shown.map(([a,b])=>[a*vw*s+dx,b*vh*s+dy]);
+      x.beginPath();P.forEach((p,i)=>i?x.lineTo(...p):x.moveTo(...p));x.closePath();
+      x.fillStyle='rgba(46,204,113,.22)';x.fill();x.lineJoin='round';x.lineWidth=4;x.strokeStyle=GREEN;x.stroke();
+      P.forEach(p=>{x.beginPath();x.arc(p[0],p[1],9,0,7);x.fillStyle='#fff';x.fill();x.lineWidth=3;x.stroke()});
+    }else{
+      let w=W*.78,h=w*1.414;if(h>H*.72){h=H*.72;w=h/1.414}
+      const l=(W-w)/2,t=(H-h)/2-10,L=36;
+      x.strokeStyle='rgba(255,255,255,.9)';x.lineWidth=4;x.lineCap='round';x.beginPath();
+      [[l,t,1,1],[l+w,t,-1,1],[l+w,t+h,-1,-1],[l,t+h,1,-1]].forEach(([a,b,sx,sy])=>{x.moveTo(a,b+sy*L);x.lineTo(a,b);x.lineTo(a+sx*L,b)});
+      x.stroke();
+    }
+  }
+  K.raf=requestAnimationFrame(drawLoop);
+}
+async function capture(){
+  if(K.busy||!vid.videoWidth)return;K.busy=true;setRing(0);
+  const f=$('#flash');f.style.transition='none';f.style.opacity='.85';
+  requestAnimationFrame(()=>{f.style.transition='';f.style.opacity='0'});
+  const c=mk(vid.videoWidth,vid.videoHeight);c.getContext('2d').drawImage(vid,0,0);
+  const q=K.target;K.lastCap=q;stopCam();
+  busy(true,'מזהה קצוות…');await tick();
+  try{const p=await addCanvas(c,q);busy(false);openCrop(p)}
+  catch(e){busy(false);toast('הצילום נכשל');show('list');renderList()}
+}
+const camToList=()=>{stopCam();show('list');renderList()};
+$('#k-shot').onclick=capture;
+$('#k-close').onclick=camToList;
+$('#k-back').onclick=camToList;
+$('#k-native').onclick=()=>{$('#f-cam').click();camToList()};
+$('#k-gal').onclick=()=>{$('#f-gal').click();camToList()};
+$('#k-done').onclick=()=>{camToList();openExport()};
+$('#k-auto').onclick=e=>{K.auto=!K.auto;e.currentTarget.setAttribute('aria-pressed',K.auto);K.stableMs=0};
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&S.view==='cam')camToList()});
+
+/* ---------- מסך חיתוך ---------- */
+const C={p:null,img:null,q:null,drag:-1,off:[0,0],L:null};
+const cc=$('#cropc');
+async function openCrop(p){
+  C.p=p;C.q=p.quad.map(a=>[...a]);show('crop');busy(true,'טוען…');await tick();
+  free(C.img);C.img=await decodeSource(p,1400);busy(false);layoutCrop();
+}
+function layoutCrop(){
+  if(!C.img)return;
+  const st=$('#stage'),W=st.clientWidth,H=st.clientHeight,dpr=Math.min(2,devicePixelRatio||1);
+  const pad=28,s=Math.min((W-pad)/C.img.width,(H-pad)/C.img.height);
+  const w=Math.round(C.img.width*s),h=Math.round(C.img.height*s);
+  cc.style.width=w+'px';cc.style.height=h+'px';cc.width=w*dpr;cc.height=h*dpr;
+  C.L={w,h,dpr};drawCrop();
+}
+function drawCrop(){
+  const {w,h,dpr}=C.L,x=cc.getContext('2d');
+  x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,w,h);x.drawImage(C.img,0,0,w,h);
+  const P=C.q.map(([a,b])=>[a*w,b*h]);
+  x.beginPath();x.rect(0,0,w,h);x.moveTo(...P[0]);for(let i=3;i>=0;i--)x.lineTo(...P[i]);x.closePath();
+  x.fillStyle='rgba(8,12,15,.55)';x.fill('evenodd');
+  const ac=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#0B7A6B';
+  x.beginPath();P.forEach((p,i)=>i?x.lineTo(...p):x.moveTo(...p));x.closePath();
+  x.lineWidth=3;x.strokeStyle='#fff';x.stroke();x.lineWidth=1.5;x.strokeStyle=ac;x.stroke();
+  P.forEach((p,i)=>{x.beginPath();x.arc(p[0],p[1],17,0,7);x.fillStyle='rgba(255,255,255,.28)';x.fill();
+    x.lineWidth=3;x.strokeStyle='#fff';x.stroke();x.beginPath();x.arc(p[0],p[1],6,0,7);x.fillStyle=ac;x.fill();
+    if(i===C.drag){x.beginPath();x.arc(p[0],p[1],26,0,7);x.lineWidth=2;x.strokeStyle='#fff';x.stroke()}});
+}
+function cpos(e){const r=cc.getBoundingClientRect();return[e.clientX-r.left,e.clientY-r.top]}
+cc.addEventListener('pointerdown',e=>{
+  const[px,py]=cpos(e),{w,h}=C.L;let bi=-1,bd=1e9;
+  C.q.forEach(([a,b],i)=>{const d=Math.hypot(a*w-px,b*h-py);if(d<bd){bd=d;bi=i}});
+  if(bd<64){C.drag=bi;C.off=[C.q[bi][0]*w-px,C.q[bi][1]*h-py];cc.setPointerCapture(e.pointerId);drawCrop();e.preventDefault()}
+});
+cc.addEventListener('pointermove',e=>{
+  if(C.drag<0)return;const[px,py]=cpos(e),{w,h}=C.L;
+  C.q[C.drag]=[Math.min(1,Math.max(0,(px+C.off[0])/w)),Math.min(1,Math.max(0,(py+C.off[1])/h))];drawCrop();
+});
+const endDrag=()=>{if(C.drag>=0){C.drag=-1;drawCrop()}};
+cc.addEventListener('pointerup',endDrag);cc.addEventListener('pointercancel',endDrag);
+addEventListener('resize',()=>{if(S.view==='crop')layoutCrop()});
+$('#c-auto').onclick=()=>{const q=detectQuad(C.img);if(q){C.q=q;drawCrop()}else{toast('לא זוהה דף, גררו את הפינות ידנית')}};
+$('#c-full').onclick=()=>{C.q=[[0,0],[1,0],[1,1],[0,1]];drawCrop()};
+$('#c-cancel').onclick=()=>{show('list');renderList()};
+$('#c-done').onclick=()=>{C.p.quad=C.q.map(a=>[...a]);openEdit(C.p)};
+
+/* ---------- מסך שיפור ---------- */
+const E={p:null,raw:null};
+async function openEdit(p){
+  E.p=p;show('edit');busy(true,'מיישר את הדף…');await tick();
+  free(E.raw);E.raw=await warpRaw(p,1400);busy(false);renderEdit();
+}
+function renderEdit(){
+  const p=E.p;
+  document.querySelectorAll('#modes button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.m===p.mode));
+  $('#thr-wrap').hidden=p.mode!=='bw';$('#thr').value=p.thr||200;
+  const e=enhance(E.raw,p.mode,p.thr),r=rotate(e,p.rot),v=$('#prev');
+  v.width=r.width;v.height=r.height;v.getContext('2d').drawImage(r,0,0);
+  if(r!==e)free(e);free(r);
+}
+document.querySelectorAll('#modes button').forEach(b=>b.onclick=()=>{E.p.mode=b.dataset.m;renderEdit()});
+$('#thr').oninput=e=>{E.p.thr=+e.target.value;renderEdit()};
+$('#e-left').onclick=()=>{E.p.rot=(E.p.rot+3)%4;renderEdit()};
+$('#e-right').onclick=()=>{E.p.rot=(E.p.rot+1)%4;renderEdit()};
+$('#e-corners').onclick=()=>openCrop(E.p);
+async function finishEdit(){busy(true,'שומר…');await tick();await makeThumb(E.p);busy(false);show('list');renderList()}
+$('#e-done').onclick=async()=>{await finishEdit();openExport()};
+$('#e-more').onclick=async()=>{if(noLive()){$('#f-cam').click();await finishEdit()}else{await finishEdit();openCam()}};
+
+/* ---------- ייצוא ---------- */
+const safeName=()=>($('#docname').value.trim().replace(/[\\/:*?"<>|]+/g,' ').replace(/\s+/g,' ')||'סריקה');
+$('#b-exp').onclick=()=>openExport();
+function openExport(){
+  if(!S.pages.length){show('list');renderList();return}
+  const d=new Date(),p2=n=>String(n).padStart(2,'0');
+  if(!$('#docname').value)$('#docname').value='סריקה '+d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());
+  const n=S.pages.length;
+  $('#x-info').textContent=(n===1?'עמוד אחד':n+' עמודים')+' בסריקה.';
+  $('#x-imgl').textContent=n===1?'הורד כתמונה (JPG)':'הורד תמונות (ZIP)';
+  $('#x-msg').textContent='';$('#x-ready').hidden=true;
+  show('export');
+}
+$('#x-back').onclick=()=>{show('list');renderList()};
+let ready=null;
+$('#x-save').onclick=()=>{
+  const a=document.createElement('a');a.href=URL.createObjectURL(ready.blob);a.download=ready.name;
+  document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),60000);
+};
+$('#x-share').onclick=async()=>{try{await navigator.share({files:[new File([ready.blob],ready.name,{type:ready.blob.type})]})}catch(e){}};
+async function save(name,blob){
+  if(!dl){ // מחוץ ל-Artifact: שמירה ישירה או שיתוף של האייפון
+    ready={name,blob};$('#x-ready').hidden=false;
+    let can=false;try{can=!!(navigator.canShare&&navigator.canShare({files:[new File([blob],name,{type:blob.type})]}))}catch(e){}
+    $('#x-share').hidden=!can;$('#x-msg').innerHTML='<span class="ok">הקובץ מוכן.</span> בחרו איך לשמור אותו:';return;
+  }
+  try{await dl.save({filename:name,data:blob});$('#x-msg').innerHTML='<span class="ok">נשמר: '+name.replace(/[<>&]/g,'')+'</span>'}
+  catch(e){$('#x-msg').textContent=e&&e.code==='declined'?'השמירה בוטלה.':'השמירה נכשלה'+(e&&e.code?' ('+e.code+')':'')+'.'}
+}
+$('#x-pdf').onclick=async()=>{
+  const name=safeName();let pdf=null;
+  try{
+    for(let i=0;i<S.pages.length;i++){
+      busy(true,'מכין עמוד '+(i+1)+' מתוך '+S.pages.length+'…');await tick();
+      const c=await renderFinal(S.pages[i],2000);
+      const land=c.width>c.height,w=land?297:210,h=w*c.height/c.width,o=land?'l':'p';
+      const url=c.toDataURL('image/jpeg',.85);free(c);
+      if(!pdf)pdf=new jspdf.jsPDF({unit:'mm',format:[w,h],orientation:o,compress:true});else pdf.addPage([w,h],o);
+      pdf.addImage(url,'JPEG',0,0,w,h,undefined,'FAST');
+    }
+    busy(true,'יוצר PDF…');await tick();
+    const blob=pdf.output('blob');busy(false);await save(name+'.pdf',blob);
+  }catch(e){busy(false);$('#x-msg').textContent='יצירת ה-PDF נכשלה.';console.error(e)}
+};
+$('#x-img').onclick=async()=>{
+  const name=safeName(),n=S.pages.length;
+  try{
+    const zip=n>1?new JSZip():null;let one=null;
+    for(let i=0;i<n;i++){
+      busy(true,'מכין עמוד '+(i+1)+' מתוך '+n+'…');await tick();
+      const c=await renderFinal(S.pages[i],2400),b=await toBlob(c,.92);free(c);
+      if(zip)zip.file(name+' - '+String(i+1).padStart(2,'0')+'.jpg',b);else one=b;
+    }
+    let out,fn;
+    if(zip){busy(true,'אורז קבצים…');await tick();out=await zip.generateAsync({type:'blob'});fn=name+'.zip'}else{out=one;fn=name+'.jpg'}
+    busy(false);await save(fn,out);
+  }catch(e){busy(false);$('#x-msg').textContent='יצירת התמונות נכשלה.';console.error(e)}
+};
+
+/* ---------- התחלה ---------- */
+renderList();
+(async()=>{try{dl=await claude.use('downloads')}catch(e){dl=null}})();
+</script>
